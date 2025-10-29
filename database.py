@@ -567,6 +567,49 @@ class Database:
             return []
         finally:
             self.close()
+            
+    # vvvv ฟังก์ชันใหม่สำหรับดูรายได้รายวัน/เดือน/ปี vvvv
+    def get_sales_by_period(self, period):
+        """
+        ดึงข้อมูลยอดขายรวมตามช่วงเวลา (period: 'day', 'month', 'year')
+        Output: ลิสต์ของ dict ที่มีคอลัมน์ [sales_period, total_orders, total_revenue]
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            if period == 'day':
+                format_str = '%Y-%m-%d'
+                alias = 'sales_period'
+            elif period == 'month':
+                format_str = '%Y-%m'
+                alias = 'sales_period'
+            elif period == 'year':
+                format_str = '%Y'
+                alias = 'sales_period'
+            else:
+                print("เกิดข้อผิดพลาด: period ต้องเป็น 'day', 'month' หรือ 'year'")
+                return []
+                
+            query = f'''
+                SELECT STRFTIME('{format_str}', created_at) AS {alias},
+                       COUNT(order_id) AS total_orders,
+                       COALESCE(SUM(total_amount), 0) AS total_revenue
+                FROM orders
+                WHERE status != 'cancelled'
+                GROUP BY {alias}
+                ORDER BY {alias} DESC
+            '''
+            cursor.execute(query)
+            sales_data = cursor.fetchall()
+            return [dict(row) for row in sales_data]
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาดในการดึงยอดขายตามช่วงเวลา: {e}")
+            return []
+        finally:
+            self.close()
+    # ^^^^ สิ้นสุดฟังก์ชันใหม่ ^^^^
 
     def get_dashboard_stats(self):
         """ดึงสถิติสำหรับ Dashboard"""
@@ -751,6 +794,7 @@ class Database:
             return []
         finally:
             self.close()
+
 if __name__ == "__main__":
     print("กำลังเริ่มต้น... สร้างตารางและผู้ใช้ตัวอย่าง (ถ้ายังไม่มี)")
     db = Database()

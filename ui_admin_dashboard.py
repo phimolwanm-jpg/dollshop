@@ -7,213 +7,278 @@ class AdminDashboardWindow(ctk.CTkFrame):
         self.main_app = main_app
         self.db = main_app.db
         
-        # สร้างหน้าจอ UI ทันที
-        self.setup_ui() 
+        self.setup_ui()
     
     def on_show(self):
-        """
-        ทำงานทุกครั้งที่เปิดหน้านี้: ลบของเก่า สร้าง UI ใหม่ทั้งหมด
-        เพื่อให้ข้อมูลสถิติสดใหม่เสมอ
-        """
-        # ลบ widget เก่าทั้งหมด
+        """รีเฟรชข้อมูลทุกครั้งที่เปิดหน้านี้"""
+        # (ล้างและสร้าง UI ใหม่ทั้งหมด เพื่อให้ข้อมูลอัปเดต)
         for widget in self.winfo_children():
             widget.destroy()
-        # สร้าง UI ใหม่
-        self.setup_ui() 
+        self.setup_ui()
     
     def setup_ui(self):
-        # --- 1. กำหนดการขยายตัวของ Grid หลัก ---
-        # ให้คอลัมน์ 0 (คอลัมน์เดียว) ขยายเต็มความกว้าง
-        self.grid_columnconfigure(0, weight=1) 
-        # ให้แถวที่ 1 (main_frame) ขยายเต็มความสูง
-        self.grid_rowconfigure(1, weight=1)    
-
-        # --- 2. สร้างส่วนหัว (Header) ---
-        header = ctk.CTkFrame(self, fg_color="white", corner_radius=0, height=70)
-        # วาง header แถวบนสุด (row=0) ยืดเต็มความกว้าง (sticky="ew")
-        header.grid(row=0, column=0, sticky="ew") 
-        # ให้คอลัมน์ 1 ใน header ขยาย (ดันปุ่มไปขวา)
-        header.grid_columnconfigure(1, weight=1) 
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
         
-        # Label ชื่อหน้า
-        header_title = ctk.CTkLabel(
+        # Header
+        self.create_header()
+        
+        # Main Content
+        main_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        main_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=20)
+        main_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        
+        # Row 0: Stats Cards
+        self.create_stats_cards(main_frame) # Row 0
+        
+        # Row 1: Sales History Summary (NEW SECTION)
+        self.create_sales_history_summary(main_frame) # Row 1
+        
+        # Row 2: Charts Section (Low Stock / Top Selling)
+        chart_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        chart_frame.grid(row=2, column=0, columnspan=4, sticky="ew", pady=20)
+        chart_frame.grid_columnconfigure((0, 1), weight=1)
+        
+        # Top Selling Products
+        self.create_top_products_section(chart_frame)
+        
+        # Low Stock Alert
+        self.create_low_stock_section(chart_frame)
+        
+        # Row 3: Recent Orders
+        self.create_recent_orders_section(main_frame) # Row 3 (เปลี่ยนจาก Row 2 เป็น Row 3)
+    
+    def create_header(self):
+        header = ctk.CTkFrame(self, fg_color="white", corner_radius=0, height=70)
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_columnconfigure(1, weight=1)
+        
+        ctk.CTkLabel(
             header, 
             text="📊 Admin Dashboard", 
             font=ctk.CTkFont(size=28, weight="bold"),
-            text_color="#2E7D32" # สีเขียว
-        )
-        header_title.pack(side="left", padx=30)
+            text_color="#2E7D32"
+        ).pack(side="left", padx=30)
         
-        # Frame สำหรับวางปุ่มทางขวา
-        header_btn_frame = ctk.CTkFrame(header, fg_color="transparent")
-        header_btn_frame.pack(side="right", padx=20)
+        btn_frame = ctk.CTkFrame(header, fg_color="transparent")
+        btn_frame.pack(side="right", padx=20)
         
-        # ปุ่ม "หน้าหลัก"
-        home_btn = ctk.CTkButton(
-            header_btn_frame,
+        ctk.CTkButton(
+            btn_frame,
             text="🏠 หน้าหลัก",
-            command=lambda: self.main_app.navigate_to('HomeWindow'), # กดแล้วไปหน้า Home
+            command=lambda: self.main_app.navigate_to('HomeWindow'),
             fg_color="transparent",
             text_color="gray50",
             hover_color="#F5F5F5"
-        )
-        home_btn.pack(side="left", padx=5)
+        ).pack(side="left", padx=5)
         
-        # ปุ่ม "จัดการสินค้า"
-        product_btn = ctk.CTkButton(
-            header_btn_frame,
+        ctk.CTkButton(
+            btn_frame,
             text="⚙️ จัดการสินค้า",
-            command=lambda: self.main_app.navigate_to('AdminWindow'), # กดแล้วไปหน้า AdminWindow
-            fg_color="#FF6B9D", # สีชมพู
+            command=lambda: self.main_app.navigate_to('AdminWindow'),
+            fg_color="#FF6B9D",
             hover_color="#FF8FB3"
-        )
-        product_btn.pack(side="left", padx=5)
+        ).pack(side="left", padx=5)
         
-        # ปุ่ม "จัดการคำสั่งซื้อ"
-        orders_btn = ctk.CTkButton(
-            header_btn_frame,
+        ctk.CTkButton(
+            btn_frame,
             text="📦 จัดการคำสั่งซื้อ",
-            command=lambda: self.main_app.navigate_to('AdminOrdersWindow'), # กดแล้วไปหน้า AdminOrdersWindow
-            fg_color="#2196F3", # สีฟ้า
+            command=lambda: self.main_app.navigate_to('AdminOrdersWindow'),
+            fg_color="#2196F3",
             hover_color="#42A5F5"
-        )
-        orders_btn.pack(side="left", padx=5)
+        ).pack(side="left", padx=5)
         
-        # ปุ่ม "ประวัติการขาย"
-        sales_btn = ctk.CTkButton(
-            header_btn_frame,
+        ctk.CTkButton(
+            btn_frame,
             text="📊 ประวัติการขาย",
-            command=lambda: self.main_app.navigate_to('SalesHistoryWindow'), # กดแล้วไปหน้า SalesHistoryWindow
-            fg_color="#9C27B0", # สีม่วง
+            command=lambda: self.main_app.navigate_to('SalesHistoryWindow'),
+            fg_color="#9C27B0",
             hover_color="#BA68C8"
-        )
-        sales_btn.pack(side="left", padx=5)
-        # --- จบส่วน Header ---
+        ).pack(side="left", padx=5)
 
-        # --- 3. สร้าง Frame หลักสำหรับเนื้อหา (เลื่อนได้) ---
-        main_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        # วาง main_frame ในแถว 1 (ใต้ header) ยืดเต็มพื้นที่ (sticky="nsew")
-        main_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=20) 
-        # แบ่ง main_frame เป็น 4 คอลัมน์เท่าๆ กัน สำหรับวางการ์ดสถิติ
-        main_frame.grid_columnconfigure((0, 1, 2, 3), weight=1) 
-
-        # --- 4. สร้างการ์ดสถิติ ---
+    # vvvv ฟังก์ชันใหม่สำหรับสรุปยอดขาย (รายวัน/เดือน/ปี) vvvv
+    def create_sales_history_summary(self, parent):
+        """สร้างส่วนแสดงยอดขายรวมตามช่วงเวลา"""
+        section = ctk.CTkFrame(parent, fg_color="white", corner_radius=15, border_width=1, border_color="#E0E0E0")
+        section.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(10, 20))
+        section.grid_columnconfigure((0, 1, 2), weight=1)
         
-        # 4.1 ดึงข้อมูลสถิติจาก DB
+        ctk.CTkLabel(
+            section, 
+            text="📈 สรุปยอดขายตามช่วงเวลา", 
+            font=ctk.CTkFont(size=18, weight="bold")
+        ).grid(row=0, column=0, columnspan=3, pady=(20, 10), padx=20, sticky="w")
+        
+        # ดึงข้อมูลจากฟังก์ชันใหม่ใน database.py
+        data = {
+            'day': self.db.get_sales_by_period('day'),
+            'month': self.db.get_sales_by_period('month'),
+            'year': self.db.get_sales_by_period('year')
+        }
+        
+        # หา Total Revenue ล่าสุดในแต่ละช่วง
+        daily_revenue = data['day'][0]['total_revenue'] if data['day'] else 0.0
+        monthly_revenue = data['month'][0]['total_revenue'] if data['month'] else 0.0
+        yearly_revenue = data['year'][0]['total_revenue'] if data['year'] else 0.0
+        
+        summary_cards = [
+            {
+                'title': 'รายได้ล่าสุด (วันนี้)',
+                'value': f"฿{daily_revenue:,.2f}",
+                'icon': '☀️',
+                'color': '#FF9800'
+            },
+            {
+                'title': 'รายได้รวม (เดือนนี้)',
+                'value': f"฿{monthly_revenue:,.2f}",
+                'icon': '📅',
+                'color': '#2196F3'
+            },
+            {
+                'title': 'รายได้รวม (ปีนี้)',
+                'value': f"฿{yearly_revenue:,.2f}",
+                'icon': '🗓️',
+                'color': '#4CAF50'
+            }
+        ]
+        
+        for i, card_data in enumerate(summary_cards):
+            card = self.create_summary_card(section, card_data)
+            card.grid(row=1, column=i, padx=20, pady=(10, 20), sticky="nsew")
+
+    def create_summary_card(self, parent, data):
+        """สร้างการ์ดสรุปยอดขายแต่ละใบ"""
+        card = ctk.CTkFrame(parent, fg_color="#F8F9FA", corner_radius=10)
+        card.grid_columnconfigure(1, weight=1)
+        
+        # Icon
+        ctk.CTkLabel(
+            card, 
+            text=data['icon'], 
+            font=ctk.CTkFont(size=30)
+        ).grid(row=0, column=0, padx=(15, 5), pady=15, sticky="nsw")
+        
+        info_frame = ctk.CTkFrame(card, fg_color="transparent")
+        info_frame.grid(row=0, column=1, padx=(5, 15), pady=10, sticky="ew")
+        info_frame.grid_columnconfigure(0, weight=1)
+        
+        # Title
+        ctk.CTkLabel(
+            info_frame, 
+            text=data['title'], 
+            font=ctk.CTkFont(size=13),
+            text_color="gray50",
+            anchor="w"
+        ).pack(anchor="w")
+        
+        # Value
+        ctk.CTkLabel(
+            info_frame, 
+            text=data['value'], 
+            font=ctk.CTkFont(size=22, weight="bold"),
+            text_color=data['color'],
+            anchor="w"
+        ).pack(anchor="w")
+        
+        return card
+    # ^^^^ สิ้นสุดฟังก์ชันใหม่ ^^^^
+    
+    def create_stats_cards(self, parent):
+        """สร้างการ์ดแสดงสถิติ"""
         stats = self.db.get_dashboard_stats()
         
-        # 4.2 เตรียมข้อมูลสำหรับการ์ดแต่ละใบ
         cards_data = [
             {
                 'title': 'ยอดขายรวม',
                 'value': f"{stats['total_orders']}",
                 'subtitle': 'คำสั่งซื้อ',
                 'icon': '🛒',
-                'color': '#4CAF50' # สีเขียว
+                'color': '#4CAF50'
             },
             {
                 'title': 'รายได้ทั้งหมด',
                 'value': f"฿{stats['total_revenue']:,.2f}",
                 'subtitle': 'บาท',
                 'icon': '💰',
-                'color': '#2196F3' # สีฟ้า
+                'color': '#2196F3'
             },
             {
                 'title': 'สินค้าทั้งหมด',
                 'value': f"{stats['total_products']}",
                 'subtitle': 'รายการ',
                 'icon': '📦',
-                'color': '#FF9800' # สีส้ม
+                'color': '#FF9800'
             },
             {
                 'title': 'รอดำเนินการ',
                 'value': f"{stats['pending_orders']}",
                 'subtitle': 'คำสั่งซื้อ',
                 'icon': '⏳',
-                'color': '#F44336' # สีแดง
+                'color': '#F44336'
             }
         ]
         
-        # 4.3 วนลูปสร้างการ์ดแต่ละใบ
-        for i, card_data_item in enumerate(cards_data):
-            # --- สร้างการ์ด 1 ใบ  ---
-            card = ctk.CTkFrame(main_frame, # ใส่การ์ดลงใน main_frame
-                                fg_color="white", 
-                                corner_radius=15, 
-                                border_width=1, 
-                                border_color="#E0E0E0")
-            card.grid_columnconfigure(0, weight=1) # ให้เนื้อหาอยู่กลางการ์ด
-            
-            # Icon (Emoji)
-            icon_label = ctk.CTkLabel(
-                card, 
-                text=card_data_item['icon'], 
-                font=ctk.CTkFont(size=40)
-            )
-            icon_label.grid(row=0, column=0, pady=(20, 10))
-            
-            # Title (เช่น 'ยอดขายรวม')
-            title_label = ctk.CTkLabel(
-                card, 
-                text=card_data_item['title'], 
-                font=ctk.CTkFont(size=14),
-                text_color="gray50"
-            )
-            title_label.grid(row=1, column=0, pady=5)
-            
-            # Value (ตัวเลขสถิติ)
-            value_label = ctk.CTkLabel(
-                card, 
-                text=card_data_item['value'], 
-                font=ctk.CTkFont(size=28, weight="bold"),
-                text_color=card_data_item['color'] # ใช้สีตามที่กำหนด
-            )
-            value_label.grid(row=2, column=0, pady=5)
-            
-            # Subtitle (เช่น 'คำสั่งซื้อ')
-            subtitle_label = ctk.CTkLabel(
-                card, 
-                text=card_data_item['subtitle'], 
-                font=ctk.CTkFont(size=12),
-                text_color="gray40"
-            )
-            subtitle_label.grid(row=3, column=0, pady=(5, 20))
-            # --- จบการสร้างการ์ด 1 ใบ ---
-            
-            # วางการ์ดลงใน main_frame ตามคอลัมน์ i (0, 1, 2, 3)
-            card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew") 
-        # --- จบส่วนสร้างการ์ดสถิติ ---
-
-        # --- 5. สร้าง Frame สำหรับวางส่วน Top Selling และ Low Stock ข้างกัน ---
-        chart_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        # วาง chart_frame ในแถว 1 (ใต้การ์ด) ให้กินพื้นที่ทั้ง 4 คอลัมน์
-        chart_frame.grid(row=1, column=0, columnspan=4, sticky="ew", pady=20) 
-        # แบ่ง chart_frame เป็น 2 คอลัมน์เท่าๆ กัน
-        chart_frame.grid_columnconfigure((0, 1), weight=1) 
-
-        # --- 6. สร้างส่วน "สินค้าขายดี" ---
-        top_product_section = ctk.CTkFrame(chart_frame, # ใส่ใน chart_frame คอลัมน์ 0
-                                           fg_color="white", corner_radius=15)
-        top_product_section.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        for i, card_data in enumerate(cards_data):
+            card = self.create_stat_card(parent, card_data)
+            card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
+    
+    def create_stat_card(self, parent, data):
+        """สร้างการ์ดสถิติแต่ละใบ (โค้ดเดิม)"""
+        card = ctk.CTkFrame(parent, fg_color="white", corner_radius=15, border_width=1, border_color="#E0E0E0")
+        card.grid_columnconfigure(0, weight=1)
         
-        top_product_title = ctk.CTkLabel(
-            top_product_section, 
+        # Icon
+        icon_label = ctk.CTkLabel(
+            card, 
+            text=data['icon'], 
+            font=ctk.CTkFont(size=40)
+        )
+        icon_label.grid(row=0, column=0, pady=(20, 10))
+        
+        # Title
+        ctk.CTkLabel(
+            card, 
+            text=data['title'], 
+            font=ctk.CTkFont(size=14),
+            text_color="gray50"
+        ).grid(row=1, column=0, pady=5)
+        
+        # Value
+        ctk.CTkLabel(
+            card, 
+            text=data['value'], 
+            font=ctk.CTkFont(size=28, weight="bold"),
+            text_color=data['color']
+        ).grid(row=2, column=0, pady=5)
+        
+        # Subtitle
+        ctk.CTkLabel(
+            card, 
+            text=data['subtitle'], 
+            font=ctk.CTkFont(size=12),
+            text_color="gray40"
+        ).grid(row=3, column=0, pady=(5, 20))
+        
+        return card
+    
+    def create_top_products_section(self, parent):
+        """แสดงสินค้าขายดี (โค้ดเดิม)"""
+        section = ctk.CTkFrame(parent, fg_color="white", corner_radius=15)
+        section.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        
+        ctk.CTkLabel(
+            section, 
             text="🏆 สินค้าขายดี Top 5", 
             font=ctk.CTkFont(size=18, weight="bold")
-        )
-        top_product_title.pack(pady=(20, 10), padx=20, anchor="w") # anchor="w" คือชิดซ้าย
+        ).pack(pady=(20, 10), padx=20, anchor="w")
         
-        # ดึงข้อมูลสินค้าขายดีจาก DB
-        top_products_list = self.db.get_top_selling_products(5)
+        top_products = self.db.get_top_selling_products(5)
         
-        # เช็คว่ามีข้อมูลหรือไม่
-        if top_products_list:
-            # วนลูปสร้างรายการสินค้าขายดี
-            for i, product_item in enumerate(top_products_list, 1): # เริ่มนับ i จาก 1
-                item_frame = ctk.CTkFrame(top_product_section, fg_color="#F5F5F5", corner_radius=10)
+        if top_products:
+            for i, product in enumerate(top_products, 1):
+                item_frame = ctk.CTkFrame(section, fg_color="#F5F5F5", corner_radius=10)
                 item_frame.pack(fill="x", padx=20, pady=5)
                 
-                # ลำดับ (#1, #2, ...)
                 rank_label = ctk.CTkLabel(
                     item_frame, 
                     text=f"#{i}", 
@@ -223,181 +288,126 @@ class AdminDashboardWindow(ctk.CTkFrame):
                 )
                 rank_label.pack(side="left", padx=10, pady=10)
                 
-                # Frame สำหรับชื่อและรายละเอียด
                 info_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
                 info_frame.pack(side="left", fill="x", expand=True, padx=10)
                 
-                # ชื่อสินค้า
-                name_label = ctk.CTkLabel(
+                ctk.CTkLabel(
                     info_frame, 
-                    text=product_item['name'], 
+                    text=product['name'], 
                     font=ctk.CTkFont(size=14, weight="bold"),
                     anchor="w"
-                )
-                name_label.pack(anchor="w")
+                ).pack(anchor="w")
                 
-                # รายละเอียด (ขายได้กี่ชิ้น / รายได้)
-                details_label = ctk.CTkLabel(
+                ctk.CTkLabel(
                     info_frame, 
-                    text=f"ขายได้: {product_item['total_sold']} ชิ้น | รายได้: ฿{product_item['total_revenue']:,.2f}", 
+                    text=f"ขายได้: {product['total_sold']} ชิ้น | รายได้: ฿{product['total_revenue']:,.2f}", 
                     font=ctk.CTkFont(size=12),
                     text_color="gray50",
                     anchor="w"
-                )
-                details_label.pack(anchor="w")
+                ).pack(anchor="w")
         else:
-            # ถ้าไม่มีข้อมูล
-            no_data_label = ctk.CTkLabel(
-                top_product_section, 
+            ctk.CTkLabel(
+                section, 
                 text="ยังไม่มีข้อมูลการขาย", 
                 text_color="gray50"
-            )
-            no_data_label.pack(pady=20)
+            ).pack(pady=20)
         
-        # Spacer เว้นวรรคด้านล่าง
-        spacer1 = ctk.CTkLabel(top_product_section, text="")
-        spacer1.pack(pady=10)
-        # --- จบส่วนสินค้าขายดี ---
+        ctk.CTkLabel(section, text="").pack(pady=10)  # Spacer
+    
+    def create_low_stock_section(self, parent):
+        """แสดงสินค้าที่สต็อกต่ำ (โค้ดเดิม)"""
+        section = ctk.CTkFrame(parent, fg_color="white", corner_radius=15)
+        section.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         
-        # --- 7. สร้างส่วน "สินค้าสต็อกต่ำ" ---
-        low_stock_section = ctk.CTkFrame(chart_frame, # ใส่ใน chart_frame คอลัมน์ 1
-                                         fg_color="white", corner_radius=15)
-        low_stock_section.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-        
-        low_stock_title = ctk.CTkLabel(
-            low_stock_section, 
+        ctk.CTkLabel(
+            section, 
             text="⚠️ สินค้าสต็อกต่ำ", 
             font=ctk.CTkFont(size=18, weight="bold"),
-            text_color="#F44336" # สีแดง
-        )
-        low_stock_title.pack(pady=(20, 10), padx=20, anchor="w")
+            text_color="#F44336"
+        ).pack(pady=(20, 10), padx=20, anchor="w")
         
-        # ดึงข้อมูลสินค้าสต็อกต่ำ (น้อยกว่า 10 ชิ้น) จาก DB
-        low_stock_list = self.db.get_low_stock_products(10)
+        low_stock = self.db.get_low_stock_products(10)
         
-        # เช็คว่ามีข้อมูลหรือไม่
-        if low_stock_list:
-            # วนลูปแสดงผล (เอาแค่ 5 รายการแรก)
-            for product_item in low_stock_list[:5]: 
-                item_frame = ctk.CTkFrame(low_stock_section, fg_color="#FFEBEE", corner_radius=10) # พื้นหลังสีชมพูอ่อน
+        if low_stock:
+            for product in low_stock[:5]:  # แสดงแค่ 5 รายการแรก
+                item_frame = ctk.CTkFrame(section, fg_color="#FFEBEE", corner_radius=10)
                 item_frame.pack(fill="x", padx=20, pady=5)
                 
-                # Frame สำหรับชื่อและจำนวน
                 info_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
                 info_frame.pack(side="left", fill="x", expand=True, padx=15, pady=10)
                 
-                # ชื่อสินค้า
-                name_label = ctk.CTkLabel(
+                ctk.CTkLabel(
                     info_frame, 
-                    text=product_item['name'], 
+                    text=product['name'], 
                     font=ctk.CTkFont(size=14, weight="bold"),
                     anchor="w"
-                )
-                name_label.pack(anchor="w")
+                ).pack(anchor="w")
                 
-                # กำหนดสีตามจำนวนสต็อก
-                stock_amount = product_item['stock']
-                if stock_amount < 5:
-                    stock_color = "#F44336" # สีแดง (น้อยกว่า 5)
-                else:
-                    stock_color = "#FF9800" # สีส้ม (5-9)
-                    
-                # จำนวนที่เหลือ
-                stock_label = ctk.CTkLabel(
+                stock_color = "#F44336" if product['stock'] < 5 else "#FF9800"
+                ctk.CTkLabel(
                     info_frame, 
-                    text=f"เหลือ: {stock_amount} ชิ้น", 
+                    text=f"เหลือ: {product['stock']} ชิ้น", 
                     font=ctk.CTkFont(size=12),
-                    text_color=stock_color, # ใช้สีที่คำนวณไว้
+                    text_color=stock_color,
                     anchor="w"
-                )
-                stock_label.pack(anchor="w")
+                ).pack(anchor="w")
         else:
-            # ถ้าไม่มีสินค้าสต็อกต่ำ
-            all_ok_label = ctk.CTkLabel(
-                low_stock_section, 
+            ctk.CTkLabel(
+                section, 
                 text="สต็อกสินค้าเพียงพอทั้งหมด ✓", 
-                text_color="#4CAF50" # สีเขียว
-            )
-            all_ok_label.pack(pady=20)
+                text_color="#4CAF50"
+            ).pack(pady=20)
         
-        # Spacer เว้นวรรคด้านล่าง
-        spacer2 = ctk.CTkLabel(low_stock_section, text="")
-        spacer2.pack(pady=10)
-        # --- จบส่วนสินค้าสต็อกต่ำ ---
-
-        # --- 8. สร้างส่วน "คำสั่งซื้อล่าสุด" ---
-        # (ย้ายโค้ดจาก create_recent_orders_section มาไว้ตรงนี้)
-        recent_orders_section = ctk.CTkFrame(main_frame, # ใส่ใน main_frame (แถว 2 ใต้ chart_frame)
-                                             fg_color="white", corner_radius=15)
-        # columnspan=4 ให้กินพื้นที่ทั้ง 4 คอลัมน์
-        recent_orders_section.grid(row=2, column=0, columnspan=4, sticky="nsew", pady=20) 
+        ctk.CTkLabel(section, text="").pack(pady=10)  # Spacer
+    
+    def create_recent_orders_section(self, parent):
+        """แสดงคำสั่งซื้อล่าสุด (โค้ดเดิม)"""
+        section = ctk.CTkFrame(parent, fg_color="white", corner_radius=15)
+        section.grid(row=3, column=0, columnspan=4, sticky="nsew", pady=20) # เปลี่ยนเป็น row 3
         
-        recent_orders_title = ctk.CTkLabel(
-            recent_orders_section, 
+        ctk.CTkLabel(
+            section, 
             text="📋 คำสั่งซื้อล่าสุด", 
             font=ctk.CTkFont(size=18, weight="bold")
-        )
-        recent_orders_title.pack(pady=(20, 10), padx=20, anchor="w")
+        ).pack(pady=(20, 10), padx=20, anchor="w")
         
-        # --- สร้างตาราง Treeview ---
+        # Treeview
         style = ttk.Style()
         style.configure("Dashboard.Treeview", rowheight=35, font=('Arial', 11))
         style.configure("Dashboard.Treeview.Heading", font=('Arial', 12, 'bold'))
         
         columns = ("order_id", "customer", "amount", "status", "date")
-        # สร้าง Treeview ใส่ใน recent_orders_section
-        orders_tree = ttk.Treeview(recent_orders_section, 
-                                   columns=columns, 
-                                   show="headings", # ไม่แสดงคอลัมน์ #0
-                                   height=8, # จำกัดความสูง 8 แถว
-                                   style="Dashboard.Treeview")
+        tree = ttk.Treeview(section, columns=columns, show="headings", height=8, style="Dashboard.Treeview")
         
-        # ตั้งชื่อหัวตาราง
-        orders_tree.heading("order_id", text="Order ID")
-        orders_tree.heading("customer", text="ลูกค้า")
-        orders_tree.heading("amount", text="ยอดเงิน")
-        orders_tree.heading("status", text="สถานะ")
-        orders_tree.heading("date", text="วันที่")
+        tree.heading("order_id", text="Order ID")
+        tree.heading("customer", text="ลูกค้า")
+        tree.heading("amount", text="ยอดเงิน")
+        tree.heading("status", text="สถานะ")
+        tree.heading("date", text="วันที่")
         
-        # ตั้งค่าความกว้างและ alignment
-        orders_tree.column("order_id", width=80, anchor="center")
-        orders_tree.column("customer", width=200, anchor="w")
-        orders_tree.column("amount", width=120, anchor="e")
-        orders_tree.column("status", width=120, anchor="center")
-        orders_tree.column("date", width=150, anchor="center")
+        tree.column("order_id", width=80, anchor="center")
+        tree.column("customer", width=200)
+        tree.column("amount", width=120, anchor="e")
+        tree.column("status", width=120, anchor="center")
+        tree.column("date", width=150, anchor="center")
         
-        # วางตาราง (ต้องใช้ pack เพราะอยู่ใน section ที่ใช้ pack)
-        orders_tree.pack(fill="both", expand=True, padx=20, pady=(0, 20)) 
+        tree.pack(fill="both", expand=True, padx=20, pady=(0, 20))
         
-        # ดึงข้อมูล 10 คำสั่งซื้อล่าสุดจาก DB
-        recent_orders_list = self.db.get_recent_orders(10)
+        recent_orders = self.db.get_recent_orders(10)
         
-        # เตรียมข้อความสถานะภาษาไทย
-        status_text_map = {
-            'pending': '⏳ รอดำเนินการ',
-            'confirmed': '✅ ยืนยันแล้ว',
-            'shipped': '🚚 จัดส่งแล้ว',
-            'delivered': '✔️ ส่งสำเร็จ',
-            'cancelled': '❌ ยกเลิก'
+        status_text = {
+            'pending': 'รอดำเนินการ',
+            'confirmed': 'ยืนยันแล้ว',
+            'shipped': 'จัดส่งแล้ว',
+            'delivered': 'ส่งสำเร็จ',
+            'cancelled': 'ยกเลิก'
         }
         
-        # วนลูปเพิ่มข้อมูลลงตาราง
-        for order_item in recent_orders_list:
-            # แปลงสถานะเป็นภาษาไทย (ถ้าไม่มี ให้ใช้ค่าเดิม)
-            status_display = status_text_map.get(order_item['status'], order_item['status'])
-            
-            # ตัดเวลาวินาทีออก
-            order_date = order_item['created_at']
-            if order_date:
-                order_date = order_date[:16] # เอาแค่ YYYY-MM-DD HH:MM
-            else:
-                order_date = '-'
-                
-            orders_tree.insert("", "end", values=(
-                f"#{order_item['order_id']}",
-                order_item['full_name'], # ใช้ full_name จาก DB
-                f"฿{order_item['total_amount']:,.2f}", # จัดรูปแบบยอดเงิน
-                status_display, # สถานะภาษาไทย
-                order_date # วันที่ที่ตัดแล้ว
+        for order in recent_orders:
+            tree.insert("", "end", values=(
+                f"#{order['order_id']}",
+                order['full_name'],
+                f"฿{order['total_amount']:,.2f}",
+                status_text.get(order['status'], order['status']),
+                order['created_at'][:16] if order['created_at'] else '-'
             ))
-        # --- จบส่วนคำสั่งซื้อล่าสุด ---
