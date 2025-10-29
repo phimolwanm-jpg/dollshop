@@ -89,14 +89,18 @@ class ProfileWindow(ctk.CTkFrame):
         )
         back_button.pack(side="right", padx=30, pady=20)
         
-        # Main Content Frame
-        content_frame = ctk.CTkFrame(self, fg_color="transparent")
-        content_frame.grid(row=1, column=0, padx=30, pady=10, sticky="nsew")
-        content_frame.grid_columnconfigure((0, 1), weight=1, uniform="group1")
-        content_frame.grid_rowconfigure(0, weight=1)
+        # Main Scrollable Content Frame
+        main_scroll = ctk.CTkScrollableFrame(
+            self,
+            fg_color="transparent",
+            scrollbar_button_color="#FFB6C1",
+            scrollbar_button_hover_color="#FFC0CB"
+        )
+        main_scroll.grid(row=1, column=0, padx=30, pady=10, sticky="nsew")
+        main_scroll.grid_columnconfigure((0, 1), weight=1, uniform="group1")
 
-        self.create_profile_panel(content_frame)
-        self.create_password_panel(content_frame)
+        self.create_profile_panel(main_scroll)
+        self.create_password_panel(main_scroll)
 
     def create_profile_panel(self, parent):
         """สร้าง Panel สำหรับแก้ไขข้อมูลส่วนตัวพร้อมรูปโปรไฟล์"""
