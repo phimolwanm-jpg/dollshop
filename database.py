@@ -1,13 +1,9 @@
-# M:/doll_shop/database.py (Updated for profile picture)
-
 import sqlite3
-# --- ลบ import bcrypt ถ้าใช้เวอร์ชัน plain text ---
-# import bcrypt
 from datetime import datetime
 
 class Database:
 
-    def __init__(self, db_name='dollshop.db'):
+    def __init__(self, db_name='M:\doll_shop\doll.shop.db'):
         self.db_name = db_name
         self.conn = None
         self.create_tables()

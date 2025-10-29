@@ -21,6 +21,7 @@ from ui_receipt import ReceiptWindow
 from ui_about import AboutWindow
 from ui_sales_history import SalesHistoryWindow
 
+
 class MainApplication(ctk.CTk):
     """
     คลาสหลักสำหรับหน้าต่างโปรแกรม
