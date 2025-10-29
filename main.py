@@ -1,16 +1,11 @@
 import customtkinter as ctk
-# --- เพิ่ม import ที่จำเป็นสำหรับการโหลดรูป ---
+# --- import ที่จำเป็นสำหรับการโหลดรูป ---
 from PIL import Image
 import os
-# --- จบส่วน import เพิ่ม ---
-
 # --- Import ส่วนประกอบหลัก ---
 from database import Database
-# ใช้ Session, User, Cart จาก models.py (ที่ปรับให้ง่ายแล้ว)
+# ใช้ Session, User, Cart จาก models.py 
 from models import Session, User, Cart
-# --- ลบ import Assets ---
-# from assets_loader import Assets
-
 # --- Import หน้าจอ UI ทั้งหมด ---
 from ui_login import LoginWindow
 from ui_home import HomeWindow
