@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
-import os
+import os # 👈 ต้อง Import os เพื่อใช้งาน Path
 import time
 from PIL import Image
 from models import Session, Cart
@@ -18,11 +18,20 @@ class CheckoutWindow(ctk.CTkFrame):
         self.edit_window = None
         self.uploaded_slip_path = None
         self.slip_filename_label = None 
-        self.confirm_btn = None  # 🔧 เพิ่ม: เก็บ reference ของปุ่ม
+        self.confirm_btn = None
         
-        # กำหนด Path รูปภาพหลัก
-        self.QR_PATH = "assets/qr_code.png"
-        self.SLIP_DIR = "assets/slips"
+        # ----------------------------------------------------
+        # 🛠️ แก้ไขส่วนการกำหนด Path เพื่อให้หาไฟล์ได้เสมอ
+        # ----------------------------------------------------
+        # หา Path ของโฟลเดอร์ปัจจุบันที่ไฟล์ ui_checkout.py อยู่
+        BASE_DIR = os.path.abspath(os.path.dirname(__file__)) 
+        
+        # กำหนด Path รูปภาพหลัก (ใช้ os.path.join)
+        self.QR_PATH = os.path.join(BASE_DIR, "assets", "qr_code.jpg") 
+        
+        # กำหนด Path โฟลเดอร์สลิป
+        self.SLIP_DIR = os.path.join(BASE_DIR, "assets", "slips")
+        # ----------------------------------------------------
 
     def on_show(self):
         """รีเฟรชข้อมูลทุกครั้งที่เปิดหน้านี้"""
@@ -39,7 +48,7 @@ class CheckoutWindow(ctk.CTkFrame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # --- Header (เหมือนเดิม) ---
+        # --- Header ---
         header_frame = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=0, height=70, border_width=1, border_color="#FFEBEE")
         header_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 20))
         header_frame.grid_columnconfigure(1, weight=1)
@@ -73,10 +82,10 @@ class CheckoutWindow(ctk.CTkFrame):
         self.create_summary_panel(right_panel)
 
     def create_shipping_payment_panel(self, parent):
-        """สร้าง Panel ที่อยู่และวิธีการชำระเงิน (ปรับปรุงการโหลด QR)"""
+        """สร้าง Panel ที่อยู่และวิธีการชำระเงิน"""
         parent.pack_propagate(False)
         
-        # Shipping Address Section (เหมือนเดิม)
+        # Shipping Address Section 
         shipping_header = ctk.CTkFrame(parent, fg_color="#FFE4E1", corner_radius=15)
         shipping_header.pack(fill="x", padx=20, pady=(20, 10))
         ctk.CTkLabel(
@@ -116,7 +125,7 @@ class CheckoutWindow(ctk.CTkFrame):
         )
         edit_btn.pack(padx=20, pady=(0, 20))
         
-        # Payment Method Section (เหมือนเดิม)
+        # Payment Method Section 
         payment_header = ctk.CTkFrame(parent, fg_color="#FFE4E1", corner_radius=15)
         payment_header.pack(fill="x", padx=20, pady=(20, 10))
         ctk.CTkLabel(
@@ -135,7 +144,7 @@ class CheckoutWindow(ctk.CTkFrame):
         
         radio1 = ctk.CTkRadioButton(
             payment_frame,
-            text="🏦 โอนเงินผ่านธนาคาร (พร้อมแนบสลิป)",
+            text="🏦 โอนเงินผ่านธนาคาร/พร้อมเพย์ (พร้อมแนบสลิป)",
             variable=self.payment_var,
             value="โอนเงินผ่านธนาคาร",
             font=ctk.CTkFont(size=14),
@@ -152,23 +161,25 @@ class CheckoutWindow(ctk.CTkFrame):
         qr_code_frame = ctk.CTkFrame(self.bank_transfer_detail_frame, fg_color="transparent")
         qr_code_frame.pack(side="left", padx=15, pady=10, fill="y")
         
-        # Load QR Code Image (แก้ไขการโหลดตรง)
+        # Load QR Code Image
         try:
-            qr_img = Image.open(self.QR_PATH).resize((120, 120), Image.LANCZOS)
-            self.qr_ctk_img = ctk.CTkImage(qr_img, size=(120, 120))
+            # 💡 การใช้ self.QR_PATH ที่ถูกแก้ไขแล้ว จะทำให้หาไฟล์เจอแน่นอน
+            qr_img = Image.open(self.QR_PATH).resize((180, 180), Image.LANCZOS)
+            self.qr_ctk_img = ctk.CTkImage(qr_img, size=(180, 180))
             ctk.CTkLabel(qr_code_frame, image=self.qr_ctk_img, text="").pack(pady=5)
         except FileNotFoundError:
+             # เมื่อแก้ไข Path แล้ว ส่วนนี้ไม่ควรถูกเรียกอีก
              ctk.CTkLabel(qr_code_frame, text="[QR Code ไม่พบ]", text_color="#F44336").pack(pady=5)
         except Exception:
              ctk.CTkLabel(qr_code_frame, text="[โหลดรูป QR Code ผิดพลาด]", text_color="#F44336").pack(pady=5)
 
-        # Bank Info Text
+        # Bank Info Text (ข้อมูลพร้อมเพย์)
         bank_info_text = ctk.CTkFrame(self.bank_transfer_detail_frame, fg_color="transparent")
         bank_info_text.pack(side="left", padx=15, pady=10, fill="both", expand=True)
 
         ctk.CTkLabel(
             bank_info_text,
-            text="📋 เลขที่บัญชี: 123-4-56789-0\nธนาคารกสิกรไทย\nชื่อบัญชี: Dollie Shop",
+            text="📱 พร้อมเพย์: 09X-XXX-XXXX\nธนาคารที่ผูก: กสิกรไทย\nชื่อบัญชี: Dollie Shop",
             justify="left",
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color="#6D4C41",
@@ -193,7 +204,7 @@ class CheckoutWindow(ctk.CTkFrame):
         self.slip_filename_label = ctk.CTkLabel(
             self.upload_slip_frame,
             text="ไฟล์ยังไม่ได้เลือก",
-            font=ctk.CTkFont(size=12, italic=True),
+            font=ctk.CTkFont(size=12, slant="italic"), 
             text_color="gray50",
             anchor="w"
         )
@@ -236,7 +247,7 @@ class CheckoutWindow(ctk.CTkFrame):
         self.update_confirm_button_state()
 
     def update_confirm_button_state(self):
-        """🔧 แก้ไข: อัปเดตสถานะปุ่มยืนยันคำสั่งซื้อ"""
+        """อัปเดตสถานะปุ่มยืนยันคำสั่งซื้อ"""
         if not self.confirm_btn:
             return
 
@@ -255,7 +266,7 @@ class CheckoutWindow(ctk.CTkFrame):
         self.confirm_btn.configure(state="normal" if can_confirm else "disabled")
 
     def create_summary_panel(self, parent):
-        """🔧 แก้ไข: สร้าง Panel สรุปรายการสินค้าและยอดรวม"""
+        """สร้าง Panel สรุปรายการสินค้าและยอดรวม"""
         # Header
         summary_header = ctk.CTkFrame(parent, fg_color="#FFE4E1", corner_radius=15)
         summary_header.pack(fill="x", padx=20, pady=(20, 10))
@@ -332,7 +343,7 @@ class CheckoutWindow(ctk.CTkFrame):
             text_color="#FF6B9D"
         ).pack(side="right")
         
-        # 🔧 เก็บ reference ของปุ่ม Confirm
+        # เก็บ reference ของปุ่ม Confirm
         self.confirm_btn = ctk.CTkButton(
             total_container,
             text="✅ ยืนยันคำสั่งซื้อ",
@@ -379,6 +390,7 @@ class CheckoutWindow(ctk.CTkFrame):
                 slip_filename = f"slip_{user.user_id}_{int(time.time())}{ext}" 
                 
                 # Path สำหรับบันทึก
+                # 💡 ใช้ self.SLIP_DIR ที่ถูกแก้ไขแล้ว
                 if not os.path.exists(self.SLIP_DIR):
                     os.makedirs(self.SLIP_DIR)
                     
