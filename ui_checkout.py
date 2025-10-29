@@ -15,16 +15,14 @@ class CheckoutWindow(ctk.CTkFrame):
         self.cart = main_app.cart
         self.db = main_app.db
         
-        # self.assets = main_app.assets ถูกลบไปแล้ว
-        
         self.edit_window = None
         self.uploaded_slip_path = None
         self.slip_filename_label = None 
+        self.confirm_btn = None  # 🔧 เพิ่ม: เก็บ reference ของปุ่ม
         
-        # VVVV กำหนด Path รูปภาพหลัก VVVV
+        # กำหนด Path รูปภาพหลัก
         self.QR_PATH = "assets/qr_code.png"
         self.SLIP_DIR = "assets/slips"
-        # ^^^^
 
     def on_show(self):
         """รีเฟรชข้อมูลทุกครั้งที่เปิดหน้านี้"""
@@ -147,7 +145,7 @@ class CheckoutWindow(ctk.CTkFrame):
         )
         radio1.pack(anchor="w", padx=25, pady=8)
         
-        # VVVV ส่วน QR Code และแนบสลิป VVVV
+        # ส่วน QR Code และแนบสลิป
         self.bank_transfer_detail_frame = ctk.CTkFrame(payment_frame, fg_color="#FFF0F5", corner_radius=10, border_width=1, border_color="#FFEBEE")
         
         # QR Code Section
@@ -163,7 +161,6 @@ class CheckoutWindow(ctk.CTkFrame):
              ctk.CTkLabel(qr_code_frame, text="[QR Code ไม่พบ]", text_color="#F44336").pack(pady=5)
         except Exception:
              ctk.CTkLabel(qr_code_frame, text="[โหลดรูป QR Code ผิดพลาด]", text_color="#F44336").pack(pady=5)
-
 
         # Bank Info Text
         bank_info_text = ctk.CTkFrame(self.bank_transfer_detail_frame, fg_color="transparent")
@@ -201,7 +198,6 @@ class CheckoutWindow(ctk.CTkFrame):
             anchor="w"
         )
         self.slip_filename_label.grid(row=0, column=1, sticky="w")
-        # ^^^^ สิ้นสุดส่วน QR Code และแนบสลิป ^^^^
         
         radio2 = ctk.CTkRadioButton(
             payment_frame,
@@ -240,9 +236,8 @@ class CheckoutWindow(ctk.CTkFrame):
         self.update_confirm_button_state()
 
     def update_confirm_button_state(self):
-        """อัปเดตสถานะปุ่มยืนยันคำสั่งซื้อ"""
-        confirm_btn = self.get_confirm_button()
-        if not confirm_btn:
+        """🔧 แก้ไข: อัปเดตสถานะปุ่มยืนยันคำสั่งซื้อ"""
+        if not self.confirm_btn:
             return
 
         can_confirm = True
@@ -257,25 +252,10 @@ class CheckoutWindow(ctk.CTkFrame):
             if not self.uploaded_slip_path:
                 can_confirm = False
 
-        confirm_btn.configure(state="normal" if can_confirm else "disabled")
-
-    def get_confirm_button(self):
-        """ค้นหาและคืนค่าปุ่มยืนยันคำสั่งซื้อ"""
-        # (ใช้การวนหาชื่อ widgets โดยอิงตามลำดับการสร้างเพื่อให้โค้ดนี้ทำงานได้)
-        for widget in self.winfo_children():
-            if isinstance(widget, ctk.CTkFrame) and widget.grid_info().get('column') == 1:
-                right_panel = widget
-                for sub_widget in right_panel.winfo_children():
-                    # Total container เป็น frame ที่ 3 ใน right_panel
-                    if isinstance(sub_widget, ctk.CTkFrame) and sub_widget.winfo_name() == "!ctkframe3": 
-                        total_container = sub_widget
-                        for btn in total_container.winfo_children():
-                            if isinstance(btn, ctk.CTkButton) and btn.cget("text") == "✅ ยืนยันคำสั่งซื้อ":
-                                return btn
-        return None
+        self.confirm_btn.configure(state="normal" if can_confirm else "disabled")
 
     def create_summary_panel(self, parent):
-        """สร้าง Panel สรุปรายการสินค้าและยอดรวม (โค้ดเดิม)"""
+        """🔧 แก้ไข: สร้าง Panel สรุปรายการสินค้าและยอดรวม"""
         # Header
         summary_header = ctk.CTkFrame(parent, fg_color="#FFE4E1", corner_radius=15)
         summary_header.pack(fill="x", padx=20, pady=(20, 10))
@@ -352,8 +332,8 @@ class CheckoutWindow(ctk.CTkFrame):
             text_color="#FF6B9D"
         ).pack(side="right")
         
-        # Confirm Button
-        confirm_btn = ctk.CTkButton(
+        # 🔧 เก็บ reference ของปุ่ม Confirm
+        self.confirm_btn = ctk.CTkButton(
             total_container,
             text="✅ ยืนยันคำสั่งซื้อ",
             command=self.place_order,
@@ -364,7 +344,7 @@ class CheckoutWindow(ctk.CTkFrame):
             hover_color="#66BB6A",
             text_color="white"
         )
-        confirm_btn.pack(fill="x")
+        self.confirm_btn.pack(fill="x")
 
         # เรียกอัปเดตสถานะปุ่มครั้งแรก
         self.update_confirm_button_state()
@@ -385,7 +365,7 @@ class CheckoutWindow(ctk.CTkFrame):
             messagebox.showwarning("ผิดพลาด", "กรุณาเพิ่มที่อยู่สำหรับจัดส่งในหน้าโปรไฟล์ก่อน", parent=self)
             return
 
-        # VVVV จัดการไฟล์สลิป VVVV
+        # จัดการไฟล์สลิป
         if payment_method == "โอนเงินผ่านธนาคาร":
             if not self.uploaded_slip_path:
                 messagebox.showwarning("ผิดพลาด", "กรุณาแนบสลิปโอนเงินก่อนยืนยันคำสั่งซื้อ", parent=self)
@@ -410,7 +390,6 @@ class CheckoutWindow(ctk.CTkFrame):
             except Exception as e:
                 messagebox.showerror("ผิดพลาด", f"ไม่สามารถบันทึกไฟล์สลิปได้: {e}", parent=self)
                 return
-        # ^^^^ สิ้นสุดส่วนจัดการไฟล์สลิป ^^^^
 
         try:
             order_id = self.db.create_order(
