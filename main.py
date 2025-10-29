@@ -1,11 +1,11 @@
-# M:/doll_shop/main.py (Added load_profile_image function)
+# M:/doll_shop/main.py (Added load_profile_image and necessary imports/frames)
 
 import customtkinter as ctk
 from PIL import Image
 import os
 from database import Database
 from models import Session, User, Cart
-# --- UI Imports ---
+# --- UI Imports (Ensure all are present) ---
 from ui_login import LoginWindow
 from ui_home import HomeWindow
 from ui_admin import AdminWindow
@@ -33,10 +33,12 @@ class MainApplication(ctk.CTk):
         self.minsize(1024, 768)
         ctk.set_appearance_mode("light")
 
-        self.db = Database()
+        self.db = Database() # Database object handles its own path now
         self.session = Session()
         self.cart = Cart()
-        self.base_path = os.path.dirname(__file__)
+        # Get the directory where main.py is located
+        self.base_path = os.path.dirname(os.path.abspath(__file__))
+        print(f"Main application base path: {self.base_path}") # Debug path
 
         container_frame = ctk.CTkFrame(self, fg_color="transparent")
         container_frame.pack(side="top", fill="both", expand=True)
@@ -45,157 +47,171 @@ class MainApplication(ctk.CTk):
 
         self.all_app_frames = {}
 
-        # --- Create all UI Frames ---
-        # (เขียนสร้าง Frame ทุกหน้าตรงๆ)
-        login_page = LoginWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["LoginWindow"] = login_page
-        login_page.grid(row=0, column=0, sticky="nsew")
+        # --- Create all UI Frames (Ensure all classes are instantiated) ---
+        # List of all window classes to instantiate
+        all_window_classes = [
+            LoginWindow, HomeWindow, AdminWindow, AdminDashboardWindow, CartWindow,
+            CheckoutWindow, OrderHistoryWindow, ProductListWindow, AdminOrdersWindow,
+            ProfileWindow, ThankYouWindow, ReceiptWindow, AboutWindow, SalesHistoryWindow,
+        ]
 
-        home_page = HomeWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["HomeWindow"] = home_page
-        home_page.grid(row=0, column=0, sticky="nsew")
+        for WindowClass in all_window_classes:
+            page_name = WindowClass.__name__ # Get class name as string (e.g., "LoginWindow")
+            try:
+                frame_instance = WindowClass(parent=container_frame, main_app=self)
+                self.all_app_frames[page_name] = frame_instance
+                # Place the frame in the grid, it will be raised later by navigate_to
+                frame_instance.grid(row=0, column=0, sticky="nsew")
+                print(f"Created frame: {page_name}")
+            except Exception as e:
+                print(f"!!! Error creating frame {page_name}: {e}")
+                # Decide how to handle this - maybe skip or raise error?
+                # For robustness, let's skip the problematic frame for now
+                pass # Continue creating other frames
 
-        admin_page = AdminWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["AdminWindow"] = admin_page
-        admin_page.grid(row=0, column=0, sticky="nsew")
+        print("Finished creating frames.")
 
-        admin_dashboard_page = AdminDashboardWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["AdminDashboardWindow"] = admin_dashboard_page
-        admin_dashboard_page.grid(row=0, column=0, sticky="nsew")
+        # --- Start with Login page ---
+        # Check if LoginWindow was created successfully before navigating
+        if "LoginWindow" in self.all_app_frames:
+             self.navigate_to("LoginWindow")
+        else:
+             print("!!! CRITICAL ERROR: LoginWindow could not be created. Cannot start application.")
+             # You might want to show an error message directly on the root window here
+             error_label = ctk.CTkLabel(self, text="Fatal Error: Could not initialize Login screen.", text_color="red", font=("Arial", 16))
+             error_label.pack(expand=True)
 
-        cart_page = CartWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["CartWindow"] = cart_page
-        cart_page.grid(row=0, column=0, sticky="nsew")
-
-        checkout_page = CheckoutWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["CheckoutWindow"] = checkout_page
-        checkout_page.grid(row=0, column=0, sticky="nsew")
-
-        order_history_page = OrderHistoryWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["OrderHistoryWindow"] = order_history_page
-        order_history_page.grid(row=0, column=0, sticky="nsew")
-
-        product_list_page = ProductListWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["ProductListWindow"] = product_list_page
-        product_list_page.grid(row=0, column=0, sticky="nsew")
-
-        thank_you_page = ThankYouWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["ThankYouWindow"] = thank_you_page
-        thank_you_page.grid(row=0, column=0, sticky="nsew")
-
-        admin_orders_page = AdminOrdersWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["AdminOrdersWindow"] = admin_orders_page
-        admin_orders_page.grid(row=0, column=0, sticky="nsew")
-
-        profile_page = ProfileWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["ProfileWindow"] = profile_page
-        profile_page.grid(row=0, column=0, sticky="nsew")
-
-        receipt_page = ReceiptWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["ReceiptWindow"] = receipt_page
-        receipt_page.grid(row=0, column=0, sticky="nsew")
-
-        about_page = AboutWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["AboutWindow"] = about_page
-        about_page.grid(row=0, column=0, sticky="nsew")
-
-        sales_history_page = SalesHistoryWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["SalesHistoryWindow"] = sales_history_page
-        sales_history_page.grid(row=0, column=0, sticky="nsew")
-
-
-        print("สร้าง Frame ทุกหน้าเสร็จแล้ว")
-
-        self.navigate_to("LoginWindow")
 
     # --- Image Loading Functions ---
     def load_image(self, image_filename, size):
+        """Loads an image from the 'assets' folder."""
+        # Construct path relative to main.py's location
         image_path = os.path.join(self.base_path, "assets", image_filename)
+        # print(f"Attempting to load image: {image_path}") # Debug message
         try:
             pil_image = Image.open(image_path)
-            ctk_image = ctk.CTkImage(pil_image, size=size)
+            pil_image = pil_image.convert("RGBA") # Ensure alpha channel
+            ctk_image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=size) # Use light/dark
+            # print(f"Successfully loaded image: {image_filename}") # Debug message
             return ctk_image
+        except FileNotFoundError:
+             print(f"!!! Error loading image: File not found at '{image_path}'")
+             # Return placeholder if file not found
+             placeholder_image = Image.new('RGBA', size, color = (192, 192, 192, 255)) # Light gray RGBA
+             ctk_placeholder = ctk.CTkImage(light_image=placeholder_image, dark_image=placeholder_image, size=size)
+             return ctk_placeholder
         except Exception as e:
-            print(f"เกิด Error ตอนโหลดรูป '{image_filename}': {e}")
-            placeholder_image = Image.new('RGB', size, color = 'lightgray')
-            ctk_placeholder = ctk.CTkImage(placeholder_image, size=size)
+            print(f"!!! General Error loading image '{image_filename}': {e}")
+            # Return placeholder on other errors
+            placeholder_image = Image.new('RGBA', size, color = (255, 0, 0, 255)) # Red RGBA indicates error
+            ctk_placeholder = ctk.CTkImage(light_image=placeholder_image, dark_image=placeholder_image, size=size)
             return ctk_placeholder
 
+
     def get_product_image(self, product_image_filename, size=(200, 200)):
+        """Loads a product image from 'assets/images', uses placeholder on failure."""
         placeholder_img = self.load_image("placeholder.png", size)
         if not product_image_filename:
             return placeholder_img
+        # Construct path relative to main.py's location
         product_image_path = os.path.join(self.base_path, "assets", "images", product_image_filename)
+        # print(f"Attempting to load product image: {product_image_path}") # Debug message
         try:
             pil_product_image = Image.open(product_image_path)
-            ctk_product_image = ctk.CTkImage(pil_product_image, size=size)
+            pil_product_image = pil_product_image.convert("RGBA")
+            ctk_product_image = ctk.CTkImage(light_image=pil_product_image, dark_image=pil_product_image, size=size)
             return ctk_product_image
-        except:
+        except FileNotFoundError:
+             print(f"Product image '{product_image_filename}' not found, using placeholder.")
+             return placeholder_img
+        except Exception as e:
+            print(f"!!! Error loading product image '{product_image_filename}': {e}, using placeholder.")
             return placeholder_img
 
-    # --- vvvv ฟังก์ชันใหม่สำหรับโหลดรูปโปรไฟล์ vvvv ---
     def load_profile_image(self, profile_image_filename, size=(100, 100)):
         """
-        ฟังก์ชันช่วยโหลดรูปโปรไฟล์จาก assets/profile_pics
-        ถ้าไม่เจอ หรือ filename เป็น None/ว่างเปล่า จะใช้รูป default
+        Loads a profile picture from assets/profile_pics.
+        Returns the default profile picture if the file is not found or filename is None/empty.
         """
-        # ชื่อไฟล์รูปโปรไฟล์ default (ต้องมีไฟล์นี้ใน assets นะคะ!)
-        default_icon = "default_profile.png"
+        default_icon = "default_profile.png" # Must exist in 'assets' folder
 
-        # ถ้าไม่มีชื่อไฟล์รูปโปรไฟล์มา หรือเป็นสตริงว่าง
+        # Load default image first (will act as fallback)
+        default_img = self.load_image(default_icon, size)
+
+        # If no specific filename, return the default immediately
         if not profile_image_filename:
-            # โหลดรูป default
-            return self.load_image(default_icon, size)
+            return default_img
 
-        # สร้าง path ไปยังไฟล์รูปโปรไฟล์ใน assets/profile_pics
+        # Construct path to the specific profile picture
         profile_image_path = os.path.join(self.base_path, "assets", "profile_pics", profile_image_filename)
+        # print(f"Attempting to load profile image: {profile_image_path}") # Debug message
         try:
-            # ลองเปิดรูปโปรไฟล์
             pil_profile_image = Image.open(profile_image_path)
-            # --- Make sure image has an alpha channel for masking ---
             pil_profile_image = pil_profile_image.convert("RGBA")
-            ctk_profile_image = ctk.CTkImage(pil_profile_image, size=size)
+            ctk_profile_image = ctk.CTkImage(light_image=pil_profile_image, dark_image=pil_profile_image, size=size)
+            # print(f"Successfully loaded profile image: {profile_image_filename}") # Debug message
             return ctk_profile_image
         except FileNotFoundError:
-            # ถ้าหาไฟล์รูปโปรไฟล์ที่ระบุไม่เจอ ก็ใช้รูป default
-            print(f"ไม่พบรูปโปรไฟล์ '{profile_image_filename}', ใช้รูป default แทน")
-            return self.load_image(default_icon, size)
+            print(f"Profile image '{profile_image_filename}' not found, using default.")
+            return default_img # Return the already loaded default
         except Exception as e:
-            # ถ้าเกิด error อื่นๆ ตอนเปิดรูป ก็ใช้รูป default
-            print(f"เกิด Error ตอนโหลดรูปโปรไฟล์ '{profile_image_filename}': {e}, ใช้รูป default แทน")
-            return self.load_image(default_icon, size)
-    # --- ^^^^ สิ้นสุดฟังก์ชันใหม่ ^^^^ ---
+            print(f"!!! Error loading profile image '{profile_image_filename}': {e}, using default.")
+            return default_img # Return the already loaded default
 
     # --- Navigation and Callbacks ---
     def navigate_to(self, target_page_name, **extra_data):
-        print(f"กำลังจะไปหน้า: {target_page_name}, ข้อมูลแนบ: {extra_data}")
+        """Switches the visible frame and calls its on_show method."""
+        print(f"Navigating to: {target_page_name}, Data: {extra_data}")
         target_frame = self.all_app_frames.get(target_page_name)
         if not target_frame:
-            print(f"Error: ไม่เจอ Frame ชื่อ '{target_page_name}'!")
+            print(f"!!! Error: Frame '{target_page_name}' not found!")
             return
-        try:
-            target_frame.on_show(**extra_data)
-            print(f"เรียก on_show() ของ {target_page_name} สำเร็จ")
-        except AttributeError:
-            print(f"หน้า {target_page_name} ไม่มี on_show()")
-            pass
-        except Exception as e:
-            print(f"เกิด Error ตอนเรียก on_show() ของ {target_page_name}: {e}")
+
+        # --- Call on_show if it exists ---
+        if hasattr(target_frame, 'on_show') and callable(getattr(target_frame, 'on_show')):
+            try:
+                target_frame.on_show(**extra_data)
+                print(f"Called on_show() for {target_page_name}")
+            except Exception as e:
+                print(f"!!! Error calling on_show() for {target_page_name}: {e}")
+        else:
+             print(f"Frame {target_page_name} has no on_show() method.")
+
+        # --- Raise the target frame to the top ---
         target_frame.tkraise()
 
     def on_login_success(self, user_data_dict):
-        user_object = User.from_dict(user_data_dict)
-        self.session.login(user_object)
-        print(f"Login สำเร็จ: {user_object.username}, Role: {user_object.role}")
-        self.navigate_to("HomeWindow")
+        """Called by LoginWindow on successful login."""
+        try:
+            user_object = User.from_dict(user_data_dict)
+            self.session.login(user_object)
+            print(f"Login successful: User: {user_object.username}, Role: {user_object.role}")
+            self.navigate_to("HomeWindow")
+        except KeyError as e:
+             print(f"!!! Error processing user data on login: Missing key {e}")
+             # Optionally show error to user or navigate back to login
+             # messagebox.showerror("Login Error", "Failed to process user data.")
+             self.navigate_to("LoginWindow") # Go back to login on error
+        except Exception as e:
+            print(f"!!! Unexpected error during on_login_success: {e}")
+            self.navigate_to("LoginWindow")
+
 
     def on_logout(self):
+        """Called when the logout button is pressed."""
         self.session.logout()
         self.cart.clear()
-        print("User ออกจากระบบแล้ว")
+        print("User logged out.")
         self.navigate_to("LoginWindow")
 
 # --- Start the Application ---
 if __name__ == "__main__":
-    app = MainApplication()
-    app.mainloop()
+    try:
+        app = MainApplication()
+        app.mainloop()
+    except Exception as start_error:
+        print(f"!!! Application failed to start: {start_error}")
+        # Show a simple Tkinter error box if CTk fails early
+        import tkinter as tk
+        root = tk.Tk()
+        root.withdraw() # Hide the main Tk window

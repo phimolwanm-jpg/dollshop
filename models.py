@@ -1,4 +1,4 @@
-# M:/doll_shop/models.py (Updated User dataclass)
+# M:/doll_shop/models.py (Corrected Order dataclass order)
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -13,13 +13,13 @@ class User:
     full_name: str
     phone: Optional[str] = None
     address: Optional[str] = None
-    profile_image_url: Optional[str] = None # <--- เพิ่ม field นี้
+    profile_image_url: Optional[str] = None # Profile picture field
     role: str = 'customer'
     created_at: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data):
-        # ฟังก์ชันนี้ยังจำเป็นสำหรับ main.py
+        # Function to convert dict to User object
         return cls(
             user_id=data['user_id'],
             username=data['username'],
@@ -27,16 +27,15 @@ class User:
             full_name=data['full_name'],
             phone=data.get('phone'),
             address=data.get('address'),
-            profile_image_url=data.get('profile_image_url'), # <--- เพิ่มการดึงค่านี้
+            profile_image_url=data.get('profile_image_url'), # Get profile picture
             role=data.get('role', 'customer'),
             created_at=data.get('created_at')
         )
 
     def is_admin(self) -> bool:
-        # เช็คว่าเป็น admin หรือไม่
+        # Check if user is admin
         return self.role == 'admin'
 
-# --- Product, Order, CartItem dataclasses remain the same ---
 @dataclass
 class Product:
     product_id: int
@@ -69,62 +68,69 @@ class Product:
 
     def get_stock_status(self) -> tuple[str, str]:
         if self.stock > 10:
-            return f"📦 คงเหลือ {self.stock}", "#32CD32"
+            return f"📦 คงเหลือ {self.stock}", "#32CD32" # Green
         elif self.stock > 0:
-            return f"📦 เหลือเพียง {self.stock} ชิ้น", "#FFA500"
+            return f"📦 เหลือเพียง {self.stock} ชิ้น", "#FFA500" # Orange
         else:
-            return "❌ สินค้าหมด", "#D22B2B"
+            return "❌ สินค้าหมด", "#D22B2B" # Red
 
+# --- vvvv Corrected Field Order in Order Dataclass vvvv ---
 @dataclass
 class Order:
+    # --- Fields *without* default values (must come first) ---
     order_id: int
-    user_id: int
-    # Buyer Info (added based on database changes)
+    user_id: int # Keep user_id association
+    total_amount: float # Moved up
+    status: str         # Moved up
+    created_at: str     # Moved up
+
+    # --- Fields *with* default values (= None or others) ---
     buyer_name: Optional[str] = None
     buyer_phone: Optional[str] = None
     buyer_address: Optional[str] = None
-    # Order Info
-    total_amount: float
-    status: str
     payment_method: Optional[str] = None
-    # Shipping Info
-    shipping_address: Optional[str] = None
-    # Payment Info
+    shipping_address: Optional[str] = None # This now holds the combined recipient string
     slip_image_url: Optional[str] = None
-    # Timestamp
-    created_at: str
-    # Items (comes from JOIN)
-    items: Optional[str] = None
+    items: Optional[str] = None # Item list (might be None if not JOINed)
 
     @classmethod
     def from_dict(cls, data):
+        # --- This part is okay, .get() handles missing keys ---
+        user_id_val = data.get('user_id')
+        # Handle cases where user_id might be None (e.g., if user deleted)
+        if user_id_val is None:
+             print(f"Warning: Order {data.get('order_id')} loaded with None user_id.")
+             # Assign a placeholder or make user_id Optional in definition
+             # For now, assign -1, but ensure DB handles deletion (ON DELETE SET NULL)
+             user_id_val = -1
+
         return cls(
             order_id=data['order_id'],
-            user_id=data.get('user_id'), # Use get for user_id too for safety
-            # Buyer
+            user_id=user_id_val, # Use the checked value
+            total_amount=data['total_amount'],
+            status=data.get('status', 'pending'),
+            created_at=data['created_at'],
             buyer_name=data.get('buyer_name'),
             buyer_phone=data.get('buyer_phone'),
             buyer_address=data.get('buyer_address'),
-            # Order
-            total_amount=data['total_amount'],
-            status=data.get('status', 'pending'),
             payment_method=data.get('payment_method'),
-            # Shipping
             shipping_address=data.get('shipping_address', ''),
-            # Payment
             slip_image_url=data.get('slip_image_url'),
-            # Timestamp
-            created_at=data['created_at'],
-            # Items
             items=data.get('items')
         )
 
+    # --- Formatting and Status methods (remain the same) ---
     def format_date(self) -> str:
         try:
-            dt_object = datetime.fromisoformat(self.created_at)
-            return dt_object.strftime("%d/%m/%Y %H:%M")
-        except:
-            return self.created_at
+            if isinstance(self.created_at, str):
+                # Try parsing, remove potential microseconds part
+                dt_object = datetime.fromisoformat(self.created_at.split('.')[0])
+                return dt_object.strftime("%d/%m/%Y %H:%M")
+            return "Invalid Date"
+        except Exception as e:
+             print(f"Error formatting date '{self.created_at}': {e}")
+             return self.created_at if isinstance(self.created_at, str) else "Invalid Date"
+
 
     def format_total(self) -> str:
         return f"฿{self.total_amount:,.2f}"
@@ -143,6 +149,8 @@ class Order:
             "delivered": "#28A745", "cancelled": "#DC3545"
         }
         return color_map.get(self.status, "gray")
+# --- ^^^^ End Corrected Order Dataclass ^^^^ ---
+
 
 @dataclass
 class CartItem:
@@ -171,11 +179,13 @@ class Session:
         return self.current_user is not None
 
     def is_admin(self) -> bool:
+        # Check is_logged_in first to prevent AttributeError
         return self.is_logged_in() and self.current_user.is_admin()
 
 # --- Cart Management (Simple Version) ---
 class Cart:
     def __init__(self):
+        # Structure: { product_id: CartItem_object }
         self.items = {}
 
     def add_item(self, product: Product, quantity: int = 1):

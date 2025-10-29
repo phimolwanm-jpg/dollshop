@@ -9,6 +9,10 @@ class HomeWindow(ctk.CTkFrame):
         self.db = main_app.db
         self.session = main_app.session
         self.cart = main_app.cart
+        
+        # --- (NEW) ตัวแปรสำหรับช่องค้นหาหน้า Home ---
+        self.home_search_var = ctk.StringVar()
+        
         # สร้างหน้าจอ UI ทันที
         self.setup_ui()
 
@@ -20,6 +24,10 @@ class HomeWindow(ctk.CTkFrame):
         # ลบ widget เก่าทั้งหมด
         for widget in self.winfo_children():
             widget.destroy()
+        
+        # --- (NEW) ล้างค่าค้นหาเก่า ---
+        self.home_search_var = ctk.StringVar()
+        
         # สร้าง UI ใหม่
         self.setup_ui()
 
@@ -38,7 +46,8 @@ class HomeWindow(ctk.CTkFrame):
             border_color="#FFEBEE"
         )
         header.grid(row=0, column=0, sticky="ew", pady=(0, 5))
-        header.grid_columnconfigure(1, weight=1)
+        # (หมายเหตุ: ลบ header.grid_columnconfigure(1, weight=1) ออก
+        # เพื่อให้ pack ทำงานแบ่งพื้นที่ได้ดีขึ้น)
 
         # --- 2.1 ใส่ Logo และชื่อร้าน (ชิดซ้าย) ---
         shop_title_label = ctk.CTkLabel(
@@ -53,8 +62,41 @@ class HomeWindow(ctk.CTkFrame):
         right_header_frame = ctk.CTkFrame(header, fg_color="transparent")
         right_header_frame.pack(side="right", padx=20, pady=10)
 
+        # --- (NEW) 2.3 สร้าง Frame ค้นหา (ตรงกลาง) ---
+        # (วางก่อน right_header_frame จะถูก pack ไปชิดขวา ทำให้ search อยู่ตรงกลาง)
+        search_frame = ctk.CTkFrame(header, fg_color="transparent")
+        search_frame.pack(side="left", padx=20, pady=10, fill="x", expand=True) 
+        
+        search_entry = ctk.CTkEntry(
+            search_frame,
+            textvariable=self.home_search_var, # ผูกกับตัวแปร
+            placeholder_text="🔍 ค้นหาตุ๊กตาทุกหมวดหมู่...",
+            height=35,
+            corner_radius=15,
+            border_width=1,
+            border_color="#FFEBEE",
+            fg_color="#FFF0F5",
+            font=("IBM Plex Sans Thai", 14)
+        )
+        # (NEW) ผูกปุ่ม Enter
+        search_entry.bind("<Return>", self.on_search) 
+        search_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        search_button = ctk.CTkButton(
+            search_frame,
+            text="ค้นหา",
+            width=80,
+            height=35,
+            corner_radius=15,
+            font=("IBM Plex Sans Thai", 14, "bold"),
+            fg_color="#FFB6C1", hover_color="#FFC0CB", text_color="white",
+            command=self.on_search # (NEW) เรียก on_search
+        )
+        search_button.pack(side="left")
+        # --- (จบส่วน NEW 2.3) ---
+
         # ---  เพิ่มการตรวจสอบ ---
-        # --- 2.3 แสดงข้อความต้อนรับ (ถ้า Login แล้ว) ---
+        # --- 2.4 (เดิม 2.3) แสดงข้อความต้อนรับ (ถ้า Login แล้ว) ---
         if self.session.is_logged_in(): # เช็คว่า login หรือยัง
             user_full_name = self.session.current_user.full_name
             welcome_text = f"สวัสดี, {user_full_name}"
@@ -66,10 +108,10 @@ class HomeWindow(ctk.CTkFrame):
             )
             welcome_label.pack(side="left", padx=10)
 
-            # --- 2.4 ตรวจสอบว่าเป็น Admin หรือไม่ (ถ้า Login แล้ว) ---
+            # --- 2.5 (เดิม 2.4) ตรวจสอบว่าเป็น Admin หรือไม่ ---
             is_current_user_admin = self.session.is_admin()
             if is_current_user_admin:
-                # --- ถ้าเป็น Admin: สร้างปุ่มสำหรับ Admin ---
+                # (... โค้ดปุ่ม Admin ... )
                 admin_dashboard_btn = ctk.CTkButton(
                     right_header_frame,
                     text="📊 Dashboard",
@@ -101,7 +143,7 @@ class HomeWindow(ctk.CTkFrame):
                 admin_product_btn.pack(side="left", padx=5)
             # --- จบเงื่อนไข if is_admin ---
 
-            # --- 2.5 สร้างปุ่มสำหรับผู้ใช้ทุกคน (ถ้า Login แล้ว) ---
+            # --- 2.6 (เดิม 2.5) สร้างปุ่มสำหรับผู้ใช้ทุกคน (ถ้า Login แล้ว) ---
             profile_btn = ctk.CTkButton(
                 right_header_frame,
                 text="โปรไฟล์",
@@ -139,9 +181,9 @@ class HomeWindow(ctk.CTkFrame):
             )
             logout_btn.pack(side="left", padx=10)
         # --- จบการตรวจสอบ if self.session.is_logged_in()---
-        # --- (ถ้ายังไม่ได้ Login ส่วน Header ด้านขวาก็จะว่างไป) ---
-        # --- จบส่วน Header ---
-
+        
+        # --- ( ... โค้ดส่วนที่เหลือของ setup_ui เหมือนเดิม ... ) ---
+        
         # --- 3. สร้าง Frame หลักสำหรับเนื้อหา (เลื่อนได้) ---
         main_content_frame = ctk.CTkScrollableFrame(
             self,
@@ -263,13 +305,27 @@ class HomeWindow(ctk.CTkFrame):
         )
         about_button.pack(pady=10)
 
+    # --- (NEW) ฟังก์ชันสำหรับจัดการการค้นหา ---
+    def on_search(self, event=None): # event=None เพื่อรองรับการกด Enter
+        """
+        ทำงานเมื่อกดปุ่มค้นหา หรือ Enter ในช่องค้นหาหน้า Home
+        """
+        search_term = self.home_search_var.get().strip()
+        if not search_term:
+            # ถ้าช่องค้นหาว่างเปล่า
+            messagebox.showinfo("ค้นหา", "กรุณาพิมพ์คำค้นหา", parent=self)
+            return
+        
+        # นำทางไปยังหน้า ProductListWindow พร้อมส่งคำค้นหา
+        print(f"Home searching for: {search_term}")
+        # (NEW) ส่ง search_term ไปยังหน้า ProductListWindow
+        self.main_app.navigate_to('ProductListWindow', search_term=search_term)
+
     def add_to_cart(self, product):
         """เพิ่มสินค้าลงตะกร้า แล้วแสดง popup"""
         # --- เพิ่มการตรวจสอบก่อน add_to_cart (ถ้ายังไม่ login) ---
         if not self.session.is_logged_in():
              messagebox.showwarning("กรุณาเข้าสู่ระบบ", "คุณต้องเข้าสู่ระบบก่อนเพิ่มสินค้าลงตะกร้า", parent=self)
-             # อาจจะพาไปหน้า login เลยก็ได้
-             # self.main_app.navigate_to("LoginWindow")
              return # หยุดทำงานถ้ายังไม่ login
         # --- สิ้นสุดการตรวจสอบ---
 
