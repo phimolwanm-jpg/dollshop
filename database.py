@@ -1,5 +1,3 @@
-# database.py (ปรับปรุง - เรียบง่าย)
-
 import sqlite3
 import os
 from datetime import datetime
@@ -753,3 +751,7 @@ class Database:
             return []
         finally:
             self.close()
+if __name__ == "__main__":
+    print("กำลังเริ่มต้น... สร้างตารางและผู้ใช้ตัวอย่าง (ถ้ายังไม่มี)")
+    db = Database()
+    print("database.py ทำงานเสร็จสิ้น")
