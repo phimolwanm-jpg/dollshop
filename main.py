@@ -49,9 +49,6 @@ class MainApplication(ctk.CTk):
         self.session = Session()
         # สร้าง object สำหรับเก็บตะกร้าสินค้า (ตอนแรกยังว่าง)
         self.cart = Cart()
-        # --- ลบ self.assets ออก ---
-        # self.assets = Assets()
-
         # --- เก็บ path หลักของโปรเจกต์ ---
         # os.path.dirname(__file__) คือ path ของโฟลเดอร์ที่ไฟล์ main.py นี้อยู่
         self.base_path = os.path.dirname(__file__)
@@ -149,8 +146,7 @@ class MainApplication(ctk.CTk):
         # --- 6. แสดงหน้า Login เป็นหน้าแรก ---
         self.navigate_to("LoginWindow")
 
-    # --- ฟังก์ชันสำหรับโหลดรูปภาพ (ย้ายมาจาก assets_loader และ แก้ไขแล้ว) ---
-    # vvvv แก้ไขพารามิเตอร์ตรงนี้ vvvv
+    # --- ฟังก์ชันสำหรับโหลดรูปภาพ  ---
     def load_image(self, image_filename, size):
         """
         ฟังก์ชันช่วยโหลดรูปภาพจากโฟลเดอร์ assets
@@ -162,26 +158,25 @@ class MainApplication(ctk.CTk):
             # ใช้ PIL เปิดรูป
             pil_image = Image.open(image_path)
             # สร้าง CTkImage object พร้อมปรับขนาด
-            # vvvv แก้ไขการใช้พารามิเตอร์ตรงนี้ vvvv
             ctk_image = ctk.CTkImage(pil_image, size=size)
             return ctk_image
         except Exception as e: # ดักจับ error ถ้าหาไฟล์ไม่เจอ หรือไฟล์เสีย
             print(f"เกิด Error ตอนโหลดรูป '{image_filename}': {e}")
             # ถ้าโหลดไม่ได้ สร้างรูปสีเทาแทน
-            # vvvv แก้ไขการใช้พารามิเตอร์ตรงนี้ vvvv
+            
             placeholder_image = Image.new('RGB', size, color = 'lightgray')
-            # vvvv แก้ไขการใช้พารามิเตอร์ตรงนี้ vvvv
+           
             ctk_placeholder = ctk.CTkImage(placeholder_image, size=size)
             return ctk_placeholder
 
-    # vvvv แก้ไขพารามิเตอร์ตรงนี้ vvvv
+    
     def get_product_image(self, product_image_filename, size=(200, 200)):
         """
         ฟังก์ชันช่วยโหลดรูปสินค้าจาก assets/images
         ถ้าไม่เจอ จะใช้รูป placeholder แทน
         """
         # โหลดรูป placeholder เตรียมไว้ก่อน (จาก assets)
-        # vvvv แก้ไขการใช้พารามิเตอร์ตรงนี้ vvvv
+        
         placeholder_img = self.load_image("placeholder.png", size)
 
         # ถ้าไม่มีชื่อไฟล์รูปสินค้ามา ก็คืน placeholder เลย
@@ -193,7 +188,7 @@ class MainApplication(ctk.CTk):
         try:
             # ลองเปิดรูปสินค้า
             pil_product_image = Image.open(product_image_path)
-            # vvvv แก้ไขการใช้พารามิเตอร์ตรงนี้ vvvv
+            
             ctk_product_image = ctk.CTkImage(pil_product_image, size=size)
             return ctk_product_image
         except: # ถ้าหาไม่เจอ หรือเปิดไม่ได้
