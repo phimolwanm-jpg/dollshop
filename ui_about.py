@@ -6,11 +6,9 @@ class AboutWindow(ctk.CTkFrame):
     def __init__(self, parent, main_app):
         super().__init__(parent, fg_color="#FFF0F5")
         self.main_app = main_app
-        # --- ไม่ต้องมี self.assets ถ้าใช้ main_app.load_image ---
         self.setup_ui()
     
     def on_show(self):
-        # หน้านี้เนื้อหาไม่เปลี่ยน ไม่ต้องทำอะไร
         pass
     
     def setup_ui(self):
