@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 
 class Database:
-    def __init__(self, db_name='dollieshop.db'):
+    def __init__(self, db_name=r'M:\doll_shop\dollshop\dollieshop.db'):
         """เชื่อมต่อกับฐานข้อมูล SQLite"""
         self.db_name = db_name
         self.conn = None
