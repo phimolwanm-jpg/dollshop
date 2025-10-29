@@ -20,8 +20,6 @@ from ui_thankyou import ThankYouWindow
 from ui_receipt import ReceiptWindow
 from ui_about import AboutWindow
 from ui_sales_history import SalesHistoryWindow
-from ui_product_detail import ProductDetailWindow
-from ui_admin_users import AdminUsersWindow
 
 class MainApplication(ctk.CTk):
     """
@@ -104,13 +102,6 @@ class MainApplication(ctk.CTk):
         self.all_app_frames["SalesHistoryWindow"] = sales_history_page
         sales_history_page.grid(row=0, column=0, sticky="nsew")
 
-        product_detail_page = ProductDetailWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["ProductDetailWindow"] = product_detail_page
-        product_detail_page.grid(row=0, column=0, sticky="nsew")
-
-        admin_users_page = AdminUsersWindow(parent=container_frame, main_app=self)
-        self.all_app_frames["AdminUsersWindow"] = admin_users_page
-        admin_users_page.grid(row=0, column=0, sticky="nsew")
 
         print("สร้าง Frame ทุกหน้าเสร็จแล้ว")
 
