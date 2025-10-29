@@ -1,23 +1,30 @@
 import customtkinter as ctk
-from tkinter import messagebox, filedialog # <--- เพิ่ม filedialog
-import os # <--- เพิ่ม os
-import time # <--- เพิ่ม time
-from PIL import Image # <--- ต้องติดตั้ง pip install pillow ก่อน
+from tkinter import messagebox, filedialog
+import os
+import time
+from PIL import Image
+from models import Session, Cart
+from database import Database
+from shutil import copyfile
 
 class CheckoutWindow(ctk.CTkFrame):
     def __init__(self, parent, main_app):
-        super().__init__(parent, fg_color="#FFF0F5")  # สีชมพูอ่อน
+        super().__init__(parent, fg_color="#FFF0F5")
         self.main_app = main_app
         self.session = main_app.session
         self.cart = main_app.cart
         self.db = main_app.db
-        self.assets = main_app.assets
-        self.edit_window = None
         
-        # VVVV เพิ่มตัวแปรสำหรับจัดการสลิป VVVV
-        self.uploaded_slip_path = None # Path ของไฟล์สลิปที่เลือกมา
-        self.slip_filename_label = None # Label แสดงชื่อไฟล์
-        # ^^^^ สิ้นสุดส่วนเพิ่ม ^^^^
+        # self.assets = main_app.assets ถูกลบไปแล้ว
+        
+        self.edit_window = None
+        self.uploaded_slip_path = None
+        self.slip_filename_label = None 
+        
+        # VVVV กำหนด Path รูปภาพหลัก VVVV
+        self.QR_PATH = "assets/qr_code.png"
+        self.SLIP_DIR = "assets/slips"
+        # ^^^^
 
     def on_show(self):
         """รีเฟรชข้อมูลทุกครั้งที่เปิดหน้านี้"""
@@ -26,7 +33,6 @@ class CheckoutWindow(ctk.CTkFrame):
         for widget in self.winfo_children():
             widget.destroy()
         self.setup_ui()
-        # VVVV เรียกอัปเดตสถานะปุ่มเมื่อเปิดหน้า VVVV
         self.update_payment_ui()
 
     def setup_ui(self):
@@ -69,7 +75,7 @@ class CheckoutWindow(ctk.CTkFrame):
         self.create_summary_panel(right_panel)
 
     def create_shipping_payment_panel(self, parent):
-        """สร้าง Panel ที่อยู่และวิธีการชำระเงิน (ปรับปรุง)"""
+        """สร้าง Panel ที่อยู่และวิธีการชำระเงิน (ปรับปรุงการโหลด QR)"""
         parent.pack_propagate(False)
         
         # Shipping Address Section (เหมือนเดิม)
@@ -85,7 +91,10 @@ class CheckoutWindow(ctk.CTkFrame):
         address_frame = ctk.CTkFrame(parent, fg_color="#FFF0F5", corner_radius=15, border_width=1, border_color="#FFEBEE")
         address_frame.pack(fill="x", padx=20, pady=(0, 20))
         
-        address_text = self.session.current_user.address or "⚠️ ยังไม่มีที่อยู่\nกรุณาเพิ่มในหน้าโปรไฟล์"
+        # ต้องแน่ใจว่า user ล็อกอินแล้ว
+        user = self.session.current_user if self.session.current_user else type('DummyUser', (object,), {'address': ''})()
+        address_text = user.address or "⚠️ ยังไม่มีที่อยู่\nกรุณาเพิ่มในหน้าโปรไฟล์"
+        
         self.address_label = ctk.CTkLabel(
             address_frame,
             text=address_text,
@@ -124,7 +133,7 @@ class CheckoutWindow(ctk.CTkFrame):
         payment_frame.pack(fill="x", padx=20, pady=10)
         
         self.payment_var = ctk.StringVar(value="โอนเงินผ่านธนาคาร")
-        self.payment_var.trace_add("write", lambda name, index, mode: self.update_payment_ui()) # <--- เพิ่ม trace
+        self.payment_var.trace_add("write", lambda name, index, mode: self.update_payment_ui())
         
         radio1 = ctk.CTkRadioButton(
             payment_frame,
@@ -140,19 +149,21 @@ class CheckoutWindow(ctk.CTkFrame):
         
         # VVVV ส่วน QR Code และแนบสลิป VVVV
         self.bank_transfer_detail_frame = ctk.CTkFrame(payment_frame, fg_color="#FFF0F5", corner_radius=10, border_width=1, border_color="#FFEBEE")
-        # โค้ด pack จะถูกเรียกใน update_payment_ui
         
         # QR Code Section
         qr_code_frame = ctk.CTkFrame(self.bank_transfer_detail_frame, fg_color="transparent")
         qr_code_frame.pack(side="left", padx=15, pady=10, fill="y")
         
-        # Load QR Code Image (สมมติต้องมี assets/qr_code.png)
+        # Load QR Code Image (แก้ไขการโหลดตรง)
         try:
-            qr_img = Image.open("assets/qr_code.png").resize((120, 120), Image.LANCZOS)
+            qr_img = Image.open(self.QR_PATH).resize((120, 120), Image.LANCZOS)
             self.qr_ctk_img = ctk.CTkImage(qr_img, size=(120, 120))
             ctk.CTkLabel(qr_code_frame, image=self.qr_ctk_img, text="").pack(pady=5)
-        except:
+        except FileNotFoundError:
              ctk.CTkLabel(qr_code_frame, text="[QR Code ไม่พบ]", text_color="#F44336").pack(pady=5)
+        except Exception:
+             ctk.CTkLabel(qr_code_frame, text="[โหลดรูป QR Code ผิดพลาด]", text_color="#F44336").pack(pady=5)
+
 
         # Bank Info Text
         bank_info_text = ctk.CTkFrame(self.bank_transfer_detail_frame, fg_color="transparent")
@@ -217,7 +228,7 @@ class CheckoutWindow(ctk.CTkFrame):
             self.uploaded_slip_path = None
             self.slip_filename_label.configure(text="ไฟล์ยังไม่ได้เลือก", text_color="gray50")
         
-        self.update_confirm_button_state() # อัปเดตสถานะปุ่มยืนยัน
+        self.update_confirm_button_state()
 
     def update_payment_ui(self):
         """แสดง/ซ่อนรายละเอียดการโอนเงินตามที่เลือก"""
@@ -237,7 +248,8 @@ class CheckoutWindow(ctk.CTkFrame):
         can_confirm = True
         
         # 1. ตรวจสอบตะกร้าและที่อยู่
-        if not self.cart.get_items() or not self.session.current_user.address:
+        user_address = self.session.current_user.address if self.session.current_user else ''
+        if not self.cart.get_items() or not user_address:
             can_confirm = False
         
         # 2. ตรวจสอบสลิป (ถ้าเลือกโอนเงิน)
@@ -249,12 +261,13 @@ class CheckoutWindow(ctk.CTkFrame):
 
     def get_confirm_button(self):
         """ค้นหาและคืนค่าปุ่มยืนยันคำสั่งซื้อ"""
-        # (หาปุ่มยืนยันใน total_container)
+        # (ใช้การวนหาชื่อ widgets โดยอิงตามลำดับการสร้างเพื่อให้โค้ดนี้ทำงานได้)
         for widget in self.winfo_children():
             if isinstance(widget, ctk.CTkFrame) and widget.grid_info().get('column') == 1:
                 right_panel = widget
                 for sub_widget in right_panel.winfo_children():
-                    if isinstance(sub_widget, ctk.CTkFrame) and sub_widget.winfo_name() == "!ctkframe3": # หา total_container
+                    # Total container เป็น frame ที่ 3 ใน right_panel
+                    if isinstance(sub_widget, ctk.CTkFrame) and sub_widget.winfo_name() == "!ctkframe3": 
                         total_container = sub_widget
                         for btn in total_container.winfo_children():
                             if isinstance(btn, ctk.CTkButton) and btn.cget("text") == "✅ ยืนยันคำสั่งซื้อ":
@@ -262,9 +275,7 @@ class CheckoutWindow(ctk.CTkFrame):
         return None
 
     def create_summary_panel(self, parent):
-        """สร้าง Panel สรุปรายการสินค้าและยอดรวม (เหมือนเดิม)"""
-        # ... (โค้ดสร้าง Panel สรุปรายการสินค้าและยอดรวมเหมือนเดิม) ...
-
+        """สร้าง Panel สรุปรายการสินค้าและยอดรวม (โค้ดเดิม)"""
         # Header
         summary_header = ctk.CTkFrame(parent, fg_color="#FFE4E1", corner_radius=15)
         summary_header.pack(fill="x", padx=20, pady=(20, 10))
@@ -388,14 +399,12 @@ class CheckoutWindow(ctk.CTkFrame):
                 slip_filename = f"slip_{user.user_id}_{int(time.time())}{ext}" 
                 
                 # Path สำหรับบันทึก
-                SLIP_DIR = "assets/slips"
-                if not os.path.exists(SLIP_DIR):
-                    os.makedirs(SLIP_DIR)
+                if not os.path.exists(self.SLIP_DIR):
+                    os.makedirs(self.SLIP_DIR)
                     
-                dest_path = os.path.join(SLIP_DIR, slip_filename)
+                dest_path = os.path.join(self.SLIP_DIR, slip_filename)
                 
-                # คัดลอกไฟล์ (ใช้ shutil.copy หรือ os.rename) - ที่นี่ใช้ os.rename/copy
-                from shutil import copyfile
+                # คัดลอกไฟล์
                 copyfile(self.uploaded_slip_path, dest_path)
                 
             except Exception as e:
@@ -410,7 +419,7 @@ class CheckoutWindow(ctk.CTkFrame):
                 items=cart_items,
                 payment_method=payment_method,
                 shipping_address=shipping_address,
-                slip_image_filename=slip_filename # <--- ส่งชื่อไฟล์สลิปเข้า DB
+                slip_image_filename=slip_filename
             )
             if order_id:
                 self.cart.clear()

@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from database import Database
 from models import Session, User, Cart
-from assets_loader import Assets
+# from assets_loader import Assets <--- ลบทิ้ง
 from ui_login import LoginWindow
 from ui_home import HomeWindow
 from ui_admin import AdminWindow
@@ -20,8 +20,6 @@ from ui_sales_history import SalesHistoryWindow
 class MainApplication(ctk.CTk):
     """
     คลาสหลักของโปรแกรม ทำหน้าที่เป็น "บ้าน"
-    ที่คอยควบคุมการแสดงผลของหน้าจอ (Frame) ต่างๆ
-    ใช้สถาปัตยกรรมแบบ Single-Window Application ที่มีประสิทธิภาพ
     """
     def __init__(self):
         super().__init__()
@@ -35,8 +33,8 @@ class MainApplication(ctk.CTk):
         self.db = Database()
         self.session = Session()
         self.cart = Cart()
-        # โหลด Assets (รูปภาพ, ไอคอน) ทั้งหมดล่วงหน้าเพื่อประสิทธิภาพสูงสุด
-        self.assets = Assets() 
+        self.assets = None # <--- ตั้งเป็น None หรือลบทิ้งก็ได้
+        print("Initial components loaded.")
 
         # --- 2. สร้าง Container หลักสำหรับวาง Frame ทั้งหมด ---
         container = ctk.CTkFrame(self, fg_color="transparent")
@@ -47,8 +45,6 @@ class MainApplication(ctk.CTk):
         self.frames = {} # Dictionary สำหรับเก็บ Frame (หน้าจอ) ทั้งหมด
 
         # --- 3. สร้าง Instance ของแต่ละหน้าจอและเก็บไว้ใน Dictionary ---
-        # เราสร้างทุกหน้าจอเตรียมไว้ตั้งแต่แรก และจะใช้ .tkraise() เพื่อสลับแสดงผล
-        # ซึ่งเร็วกว่าการสร้าง-ทำลาย Frame ใหม่ทุกครั้ง
         all_windows = (
             LoginWindow, 
             HomeWindow, 
@@ -78,40 +74,30 @@ class MainApplication(ctk.CTk):
         self.navigate_to("LoginWindow")
 
     def navigate_to(self, page_name, **kwargs):
-        """
-        ฟังก์ชันหัวใจหลักในการสลับหน้าจอ (Frame)
-        สามารถรับและส่งต่อ arguments (kwargs) ไปยังหน้าจอเป้าหมายได้
-        """
+        """ฟังก์ชันหัวใจหลักในการสลับหน้าจอ (Frame)"""
         print(f"Navigating to: {page_name} with args: {kwargs}")
         frame = self.frames.get(page_name)
         if not frame:
             print(f"Error: Frame '{page_name}' not found!")
             return
 
-        # ตรวจสอบว่า Frame นั้นๆ มีฟังก์ชัน on_show หรือไม่
-        # เราจะใช้ on_show เพื่อ "รีเฟรช" ข้อมูลให้เป็นปัจจุบันทุกครั้งที่กลับมาหน้านั้นๆ
         if hasattr(frame, 'on_show') and callable(getattr(frame, 'on_show')):
-            frame.on_show(**kwargs) # ส่ง kwargs เข้าไปใน on_show
+            frame.on_show(**kwargs)
 
-        # ดึง Frame ที่ต้องการขึ้นมาแสดงผลทับอันอื่น
         frame.tkraise() 
 
     def on_login_success(self, user_data):
-        """
-        Callback function นี้จะถูกเรียกใช้โดย LoginWindow เมื่อล็อกอินสำเร็จ
-        """
-        # แปลง dict เป็น User object ก่อนเก็บใน session
+        """Callback function นี้จะถูกเรียกใช้โดย LoginWindow เมื่อล็อกอินสำเร็จ"""
+        from models import User # ต้อง import ตรงนี้เพราะไม่มี assets_loader แล้ว
         user = User.from_dict(user_data) 
         self.session.login(user)
         print(f"Login successful for user: {user.username}, Role: {user.role}")
         self.navigate_to("HomeWindow")
 
     def on_logout(self):
-        """
-        Callback function นี้จะถูกเรียกใช้โดย HomeWindow (หรือหน้าอื่นๆ) เมื่อกดออกจากระบบ
-        """
+        """Callback function นี้จะถูกเรียกใช้โดย HomeWindow (หรือหน้าอื่นๆ) เมื่อกดออกจากระบบ"""
         self.session.logout()
-        self.cart.clear() # ล้างตะกร้าสินค้าเมื่อออกจากระบบ
+        self.cart.clear() 
         print("User logged out.")
         self.navigate_to("LoginWindow")
 
