@@ -82,7 +82,6 @@ class SalesHistoryWindow(ctk.CTkFrame):
         # --- จบส่วน Header ---
 
         # --- 3. สร้าง Frame สำหรับวางการ์ดสถิติ ---
-        # (ย้ายโค้ดส่วนใหญ่จาก create_stats_cards มาไว้ตรงนี้)
         stats_cards_frame = ctk.CTkFrame(self, fg_color="transparent")
         # วาง frame นี้ในแถว 1 (ใต้ header) ยืดเต็มกว้าง
         stats_cards_frame.grid(row=1, column=0, sticky="ew", padx=30, pady=(0, 10)) 

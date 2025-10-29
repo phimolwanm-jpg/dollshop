@@ -8,8 +8,6 @@ class CartWindow(ctk.CTkFrame):
         super().__init__(parent, fg_color="#FFF0F5")  # สีชมพูอ่อน
         self.main_app = main_app
         self.cart = main_app.cart
-        # --- ใช้ main_app.get_product_image แทน self.assets ---
-        # self.assets = main_app.assets 
 
         # สร้างหน้าจอ UI ทันที
         self.setup_ui() 
@@ -65,7 +63,6 @@ class CartWindow(ctk.CTkFrame):
         # --- จบส่วน Header ---
 
         # --- 3. สร้าง Panel ด้านซ้าย (รายการสินค้า) ---
-        # (ย้ายโค้ดจาก create_cart_items_panel มาไว้ตรงนี้)
         left_panel = ctk.CTkFrame(self, fg_color="transparent")
         # วาง left_panel ในแถว 1, คอลัมน์ 0 ยืดเต็มพื้นที่
         left_panel.grid(row=1, column=0, sticky="nsew", padx=(30, 10), pady=10) 
@@ -104,8 +101,7 @@ class CartWindow(ctk.CTkFrame):
         else:
             # --- ถ้าตะกร้าไม่ว่าง: วนลูปสร้างการ์ดสินค้า ---
             for item_data in cart_items_list: # item_data คือ CartItem object
-                # --- สร้าง Widget สำหรับสินค้า 1 ชิ้น (โค้ดจาก create_cart_item_widget เดิม) ---
-                # (ย้ายโค้ดสร้างการ์ดสินค้ามาไว้ใน loop นี้)
+                # --- สร้าง Widget สำหรับสินค้า 1 ชิ้น---
                 
                 # การ์ดหลักสำหรับสินค้า 1 ชิ้น
                 item_card = ctk.CTkFrame(
@@ -118,7 +114,7 @@ class CartWindow(ctk.CTkFrame):
                 )
 
                 # --- ส่วนรูปภาพ (ซ้ายสุด) ---
-                # ใช้ main_app.get_product_image (สมมติว่าปรับ main.py แล้ว)
+                # ใช้ main_app.get_product_image 
                 product_image = self.main_app.get_product_image(item_data.product.image_url, size=(100,100)) 
                 image_label = ctk.CTkLabel(item_card, text="", image=product_image)
                 image_label.pack(side="left", padx=15, pady=15)
@@ -221,7 +217,6 @@ class CartWindow(ctk.CTkFrame):
         # --- จบ Panel ด้านซ้าย ---
 
         # --- 4. สร้าง Panel ด้านขวา (สรุปยอด) ---
-        # (ย้ายโค้ดจาก create_summary_panel มาไว้ตรงนี้)
         right_panel = ctk.CTkFrame(self, fg_color="transparent")
         # วาง right_panel ในแถว 1, คอลัมน์ 1 ยืดเต็มพื้นที่
         right_panel.grid(row=1, column=1, sticky="nsew", padx=(10, 30), pady=10) 
@@ -333,7 +328,6 @@ class CartWindow(ctk.CTkFrame):
             checkout_button.configure(state="disabled") # ทำให้ปุ่มเป็นสีเทา กดไม่ได้
         # --- จบ Panel ด้านขวา ---
 
-    # --- (ลบฟังก์ชัน create_cart_items_panel, create_cart_item_widget, create_summary_panel) ---
     
     # --- ฟังก์ชันจัดการ Logic (เหมือนเดิม) ---
     def change_quantity(self, item, amount: int):

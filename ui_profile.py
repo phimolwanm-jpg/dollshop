@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from tkinter import messagebox
-import bcrypt # Keep bcrypt for essential password checking
+import bcrypt 
 
 class ProfileWindow(ctk.CTkFrame):
     def __init__(self, parent, main_app):
@@ -76,7 +76,6 @@ class ProfileWindow(ctk.CTkFrame):
         content_frame.grid_rowconfigure(0, weight=1) 
 
         # --- 4. สร้าง Panel ด้านซ้าย (ข้อมูลส่วนตัว) ---
-        # (ย้ายโค้ดจาก create_profile_panel มาไว้ตรงนี้)
         profile_panel = ctk.CTkFrame(content_frame, # ใส่ใน content_frame คอลัมน์ 0
                                      fg_color="#FFFFFF", 
                                      corner_radius=20, 
@@ -187,7 +186,6 @@ class ProfileWindow(ctk.CTkFrame):
         # --- จบ Panel ด้านซ้าย ---
 
         # --- 5. สร้าง Panel ด้านขวา (เปลี่ยนรหัสผ่าน) ---
-        # (ย้ายโค้ดจาก create_password_panel มาไว้ตรงนี้)
         password_panel = ctk.CTkFrame(content_frame, # ใส่ใน content_frame คอลัมน์ 1
                                       fg_color="#FFFFFF", 
                                       corner_radius=20, 

@@ -1,9 +1,6 @@
 import customtkinter as ctk
-# Product object is used in add_to_cart and helps structure data
 from models import Product 
-from tkinter import messagebox
-# math module is not actually used in this version
-# import math 
+from tkinter import messagebox 
 
 class ProductListWindow(ctk.CTkFrame):
     def __init__(self, parent, main_app):
@@ -12,9 +9,6 @@ class ProductListWindow(ctk.CTkFrame):
         # ดึง object ที่จำเป็นจาก main_app
         self.db = main_app.db
         self.cart = main_app.cart
-        # --- ไม่ต้องมี self.assets ถ้าใช้ main_app.load_image ---
-        # self.assets = main_app.assets 
-        
         # --- ตัวแปรสำหรับเก็บสถานะของหน้านี้ ---
         self.category_filter = None # หมวดหมู่ที่กำลังแสดง (None = ทั้งหมด)
         self.current_product_list = [] # List ของ product (dict) ที่แสดงอยู่ตอนนี้
@@ -25,9 +19,7 @@ class ProductListWindow(ctk.CTkFrame):
 
         # สร้างหน้าจอ UI ทันที (แต่ยังไม่มีข้อมูล)
         self.setup_ui() 
-        
         # โหลดข้อมูลสินค้าครั้งแรก (จะถูกเรียกอีกครั้งใน on_show)
-        # self.load_products() # ย้ายไปเรียกใน on_show ครั้งเดียว
 
     def on_show(self, category=None):
         """
@@ -56,7 +48,6 @@ class ProductListWindow(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1) 
 
         # --- 2. สร้างส่วนหัว (Header), Search, และ Filter ---
-        # (ย้ายโค้ดจาก create_header มาไว้ตรงนี้)
         header_frame = ctk.CTkFrame(self, # ใส่ header ใน ProductListWindow (self)
                                     fg_color="#FFFFFF", 
                                     corner_radius=0, 
@@ -132,7 +123,6 @@ class ProductListWindow(ctk.CTkFrame):
         # --- จบส่วน Header ---
 
         # --- 3. สร้าง Frame หลักสำหรับแสดงผล Grid สินค้า ---
-        # (ย้ายโค้ดจาก create_product_grid มาไว้ตรงนี้)
         product_grid_container = ctk.CTkFrame(self, fg_color="transparent")
         # วาง container ในแถว 1 (ใต้ header) ยืดเต็มพื้นที่
         product_grid_container.grid(row=1, column=0, sticky="nsew") 
@@ -164,8 +154,6 @@ class ProductListWindow(ctk.CTkFrame):
             self.products_frame_scrollable.grid_columnconfigure(i, weight=1, uniform="col") 
         # --- จบส่วนสร้าง Grid ---
         # --- จบ setup_ui ---
-
-    # --- (ลบฟังก์ชัน create_header และ create_product_grid) ---
 
     def load_products(self):
         """โหลดสินค้าจากฐานข้อมูลตาม category และ search term"""
@@ -213,11 +201,6 @@ class ProductListWindow(ctk.CTkFrame):
             product_object_list.sort(key=lambda product: product.name) 
         
         # --- 3. (Optional) แปลง List ของ Object กลับเป็น List ของ Dictionary ---
-        # (อาจจะไม่จำเป็นถ้า display_products ใช้ object ได้เลย)
-        # sorted_product_dict_list = []
-        # for product_obj in product_object_list:
-        #     sorted_product_dict_list.append(product_obj.__dict__) # __dict__ แปลง object เป็น dict
-        # self.current_product_list = sorted_product_dict_list
         
         # --- ใช้ List ของ Object ไปแสดงผลเลย ---
         # ส่ง List ของ Product Object ที่เรียงแล้วไปให้ display_products
@@ -261,9 +244,7 @@ class ProductListWindow(ctk.CTkFrame):
             # คำนวณแถว (row) และคอลัมน์ (col)
             row, col = divmod(i, cols) 
             
-            # --- สร้างการ์ดสินค้า 1 ใบ (โค้ดจาก create_product_card เดิม) ---
-            # (ย้ายโค้ดสร้างการ์ดมาไว้ใน loop นี้)
-            
+            # --- สร้างการ์ดสินค้า 1 ใบ (โค้ดจาก create_product_card เดิม) --- 
             # สร้าง Frame ของการ์ด
             product_card = ctk.CTkFrame(self.products_frame_scrollable, # ใส่การ์ดลงใน frame ที่เลื่อนได้
                                         fg_color="#FFFFFF", 
@@ -272,7 +253,7 @@ class ProductListWindow(ctk.CTkFrame):
                                         border_color="#FFEBEE")
             
             # โหลดและแสดงรูปภาพสินค้า
-            # ใช้ main_app.get_product_image (สมมติว่าปรับ main.py แล้ว)
+            # ใช้ main_app.get_product_image 
             product_card_image = self.main_app.get_product_image(product_object.image_url) 
             image_label_card = ctk.CTkLabel(product_card, text="", image=product_card_image, bg_color="transparent")
             image_label_card.pack(pady=(15, 10))
@@ -328,8 +309,6 @@ class ProductListWindow(ctk.CTkFrame):
             # วางการ์ดลงใน Grid ตามแถวและคอลัมน์ที่คำนวณไว้
             product_card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew") 
         # --- จบ Loop สร้างการ์ด ---
-
-    # --- (ลบฟังก์ชัน create_product_card) ---
 
     def add_to_cart(self, product): # รับ Product object เข้ามา
         """เพิ่มสินค้าลงตะกร้า แล้วแสดง popup"""

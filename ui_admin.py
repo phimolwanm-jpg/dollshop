@@ -9,13 +9,8 @@ class AdminWindow(ctk.CTkFrame):
         super().__init__(parent, fg_color="#F8F9FA")
         self.main_app = main_app
         self.db = main_app.db
-        # --- ใช้ฟังก์ชันโหลดรูปจาก main_app แทน assets ---
-        # self.assets = main_app.assets 
-
         self.selected_product_id = None
-        # self.image_path = None # ไม่ได้ใช้แล้ว
         self.image_filename = None # เก็บชื่อไฟล์รูปภาพ
-
         self.setup_ui() # สร้างหน้าจอ UI ทั้งหมด
         self.load_products_to_treeview() # โหลดข้อมูลสินค้าใส่ตาราง
 
@@ -59,8 +54,7 @@ class AdminWindow(ctk.CTkFrame):
         list_title = ctk.CTkLabel(list_frame, text="รายการสินค้าทั้งหมด", font=ctk.CTkFont(size=18, weight="bold"))
         list_title.grid(row=0, column=0, padx=20, pady=15, sticky="w")
         
-        # --- 3.1 สร้างตาราง Treeview (โค้ดจาก setup_treeview เดิม) ---
-        # (ย้ายโค้ดสร้าง Treeview มาไว้ตรงนี้)
+        # --- 3.1 สร้างตาราง Treeview ---
         style = ttk.Style()
         style.configure("Treeview.Heading", font=('Arial', 14, 'bold'))
         style.configure("Treeview", rowheight=30, font=('Arial', 12))
@@ -99,8 +93,7 @@ class AdminWindow(ctk.CTkFrame):
         form_title = ctk.CTkLabel(form_frame, text="เพิ่ม / แก้ไขข้อมูลสินค้า", font=ctk.CTkFont(size=18, weight="bold"))
         form_title.grid(row=0, column=0, padx=20, pady=15, sticky="w")
         
-        # --- 4.1 สร้างฟอร์ม (โค้ดส่วนใหญ่จาก setup_form เดิม) ---
-        # (ย้ายโค้ดสร้าง Form มาไว้ตรงนี้ และเขียนซ้ำๆ แทน loop)
+        # --- 4.1 สร้างฟอร์ม ---
         form_fields_container = ctk.CTkFrame(form_frame, fg_color="transparent")
         form_fields_container.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
         form_fields_container.grid_columnconfigure(1, weight=1) # ให้คอลัมน์ช่องกรอกขยายได้
@@ -170,10 +163,6 @@ class AdminWindow(ctk.CTkFrame):
         delete_button = ctk.CTkButton(btn_frame, text="🗑️ ลบ", command=self.delete_product, fg_color="#D22B2B", hover_color="#8B0000", height=40)
         delete_button.grid(row=0, column=2, padx=5, sticky="ew")
         # --- จบส่วนสร้าง Form ---
-
-    # --- ฟังก์ชันที่เหลือ (load_products_to_treeview, on_product_select, etc.) ---
-    # --- โค้ดส่วนนี้เหมือนเดิม เพราะค่อนข้างตรงไปตรงมาอยู่แล้ว ---
-    # --- (แค่ต้องแน่ใจว่าเรียกใช้ self.entries['key'] ถูกต้อง) ---
 
     def load_products_to_treeview(self):
         # ล้างข้อมูลเก่าในตาราง
@@ -311,7 +300,7 @@ class AdminWindow(ctk.CTkFrame):
             # ถ้า self.image_filename เป็น None ให้ใช้ "" (สตริงว่าง) แทน
             image_url_to_save = self.image_filename if self.image_filename else ""
 
-            # --- ตรรกะสำคัญ: เช็คว่าเป็นการ "แก้ไข" หรือ "สร้างใหม่" ---
+            # --- สำคัญ: เช็คว่าเป็นการ "แก้ไข" หรือ "สร้างใหม่" ---
             if self.selected_product_id: 
                 # ถ้า selected_product_id มีค่า (คือเคยคลิกเลือกจากตาราง) = แก้ไข
                 success = self.db.update_product(

@@ -15,7 +15,7 @@ class AdminOrdersWindow(ctk.CTkFrame):
         ทำงานทุกครั้งที่เปิดหน้านี้: ลบของเก่า สร้าง UI ใหม่ทั้งหมด
         เพื่อให้ข้อมูลคำสั่งซื้อสดใหม่เสมอ
         """
-        # ลบ widget เก่าทั้งหมด
+       
         for widget in self.winfo_children():
             widget.destroy()
         # สร้าง UI ใหม่
@@ -29,7 +29,7 @@ class AdminOrdersWindow(ctk.CTkFrame):
         self.grid_rowconfigure(1, weight=1)    
 
         # --- 2. สร้างส่วนหัว (Header) ---
-        # (ย้ายโค้ดจาก create_header มาไว้ตรงนี้)
+        
         header = ctk.CTkFrame(
             self, # ใส่ header ลงใน AdminOrdersWindow (self)
             fg_color="#FFFFFF", 
@@ -109,7 +109,6 @@ class AdminOrdersWindow(ctk.CTkFrame):
         title_label.pack(pady=15)
         
         # --- 3.2 สร้าง Frame สำหรับตาราง Treeview และ Scrollbar ---
-        # (ย้ายโค้ดส่วนใหญ่จาก create_orders_table มาไว้ตรงนี้)
         tree_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         # วาง tree_frame ในแถว 1 ของ main_frame ยืดเต็มพื้นที่
         tree_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20)) 
@@ -223,7 +222,6 @@ class AdminOrdersWindow(ctk.CTkFrame):
         refresh_button.pack(side="left", padx=5, fill="x", expand=True)
         # --- จบส่วนสร้าง UI ---
 
-    # --- (ลบฟังก์ชัน create_header และ create_orders_table เพราะย้ายโค้ดไปแล้ว) ---
     
     def load_orders(self):
         """โหลดข้อมูลคำสั่งซื้อทั้งหมดมาใส่ตาราง"""

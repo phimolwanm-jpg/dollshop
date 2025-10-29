@@ -1,5 +1,3 @@
-# M:/doll_shop/dollshop/ui_home.py (แก้ไข)
-
 import customtkinter as ctk
 from tkinter import messagebox
 from models import Product
@@ -11,9 +9,6 @@ class HomeWindow(ctk.CTkFrame):
         self.db = main_app.db
         self.session = main_app.session
         self.cart = main_app.cart
-        # --- ไม่ต้องมี self.assets ถ้าใช้ main_app.load_image ---
-        # self.assets = main_app.assets
-
         # สร้างหน้าจอ UI ทันที
         self.setup_ui()
 
@@ -58,7 +53,7 @@ class HomeWindow(ctk.CTkFrame):
         right_header_frame = ctk.CTkFrame(header, fg_color="transparent")
         right_header_frame.pack(side="right", padx=20, pady=10)
 
-        # --- vvvv เพิ่มการตรวจสอบตรงนี้ vvvv ---
+        # ---  เพิ่มการตรวจสอบ ---
         # --- 2.3 แสดงข้อความต้อนรับ (ถ้า Login แล้ว) ---
         if self.session.is_logged_in(): # เช็คว่า login หรือยัง
             user_full_name = self.session.current_user.full_name
@@ -143,7 +138,7 @@ class HomeWindow(ctk.CTkFrame):
                 command=self.main_app.on_logout
             )
             logout_btn.pack(side="left", padx=10)
-        # --- ^^^^ จบการตรวจสอบ if self.session.is_logged_in() ^^^^ ---
+        # --- จบการตรวจสอบ if self.session.is_logged_in()---
         # --- (ถ้ายังไม่ได้ Login ส่วน Header ด้านขวาก็จะว่างไป) ---
         # --- จบส่วน Header ---
 
@@ -268,17 +263,15 @@ class HomeWindow(ctk.CTkFrame):
         )
         about_button.pack(pady=10)
 
-    # --- (ลบฟังก์ชัน create_header, create_banner, etc.) ---
-
     def add_to_cart(self, product):
         """เพิ่มสินค้าลงตะกร้า แล้วแสดง popup"""
-        # --- vvvv เพิ่มการตรวจสอบก่อน add_to_cart (ถ้ายังไม่ login) vvvv ---
+        # --- เพิ่มการตรวจสอบก่อน add_to_cart (ถ้ายังไม่ login) ---
         if not self.session.is_logged_in():
              messagebox.showwarning("กรุณาเข้าสู่ระบบ", "คุณต้องเข้าสู่ระบบก่อนเพิ่มสินค้าลงตะกร้า", parent=self)
              # อาจจะพาไปหน้า login เลยก็ได้
              # self.main_app.navigate_to("LoginWindow")
              return # หยุดทำงานถ้ายังไม่ login
-        # --- ^^^^ สิ้นสุดการตรวจสอบ ^^^^ ---
+        # --- สิ้นสุดการตรวจสอบ---
 
         self.cart.add_item(product)
         messagebox.showinfo("ตะกร้าสินค้า", f"เพิ่ม '{product.name}' ลงในตะกร้าแล้ว!", parent=self)

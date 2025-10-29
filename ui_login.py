@@ -2,7 +2,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 import re # Import regular expression module for email validation
 
-# --- ฟังก์ชันช่วยเหลือ (ยังคงไว้เพราะมีประโยชน์และไม่ซับซ้อนมาก) ---
+# --- ฟังก์ชันช่วยเหลือ ---
 def validate_email(email: str) -> bool:
     """
     ตรวจสอบรูปแบบอีเมลง่ายๆ ว่ามี @ และ . หรือไม่
@@ -29,9 +29,6 @@ class LoginWindow(ctk.CTkFrame):
         self.main_app = main_app
         # ดึง object ที่จำเป็นจาก main_app
         self.db = main_app.db 
-        # --- ไม่ต้องมี self.assets ถ้าใช้ main_app.load_image ---
-        # self.assets = main_app.assets 
-        
         # สร้างหน้าจอ UI ทันที
         self.setup_ui() 
 
@@ -77,7 +74,7 @@ class LoginWindow(ctk.CTkFrame):
         form_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 40), pady=20) 
 
         # --- 3.1 ใส่ Logo ---
-        # โหลดรูป logo (สมมติว่า main.py มี load_image แล้ว)
+        # โหลดรูป logo 
         logo_image = self.main_app.load_image("logo.png", size=(100, 100)) 
         logo_label = ctk.CTkLabel(form_frame, text="", image=logo_image)
         logo_label.pack(pady=(20, 10)) # เว้นระยะบน/ล่าง
@@ -112,14 +109,11 @@ class LoginWindow(ctk.CTkFrame):
         self.tab_view = tab_view 
 
         # --- 4. เติมเนื้อหาลงในแต่ละ Tab ---
-        # (ย้ายโค้ดจาก setup_login_tab และ setup_register_tab มาไว้ตรงนี้)
-        
         # --- 4.1 เติมเนื้อหา Tab "เข้าสู่ระบบ" ---
-        
         # --- ช่องกรอก "ชื่อผู้ใช้" (Login) ---
         login_user_frame = ctk.CTkFrame(self.login_tab_frame, fg_color="#FFF0F5", corner_radius=15,
                                         border_width=1, border_color="#FFEBEE")
-        # โหลด icon user (สมมติว่า main.py มี load_image แล้ว)
+        # โหลด icon user
         login_user_icon = self.main_app.load_image("user_icon.png", size=(20, 20)) 
         login_user_icon_label = ctk.CTkLabel(login_user_frame, text="", image=login_user_icon)
         login_user_icon_label.pack(side="left", padx=(10, 5))
@@ -133,7 +127,7 @@ class LoginWindow(ctk.CTkFrame):
         # --- ช่องกรอก "รหัสผ่าน" (Login) ---
         login_pass_frame = ctk.CTkFrame(self.login_tab_frame, fg_color="#FFF0F5", corner_radius=15,
                                         border_width=1, border_color="#FFEBEE")
-        # โหลด icon lock (สมมติว่า main.py มี load_image แล้ว)
+        # โหลด icon lock 
         login_pass_icon = self.main_app.load_image("lock_icon.png", size=(20, 20)) 
         login_pass_icon_label = ctk.CTkLabel(login_pass_frame, text="", image=login_pass_icon)
         login_pass_icon_label.pack(side="left", padx=(10, 5))
@@ -152,9 +146,7 @@ class LoginWindow(ctk.CTkFrame):
                                      command=self.handle_login) # กดแล้วเรียก handle_login
         login_button.pack(fill="x", pady=20, padx=10)
         # --- จบ Tab "เข้าสู่ระบบ" ---
-
-        # --- 4.2 เติมเนื้อหา Tab "สมัครสมาชิก" ---
-        
+        # --- 4.2 เติมเนื้อหา Tab "สมัครสมาชิก" ---    
         # --- ช่องกรอก "ตั้งชื่อผู้ใช้" (Register) ---
         reg_user_frame = ctk.CTkFrame(self.register_tab_frame, fg_color="#FFF0F5", corner_radius=15,
                                       border_width=1, border_color="#FFEBEE")
@@ -172,7 +164,7 @@ class LoginWindow(ctk.CTkFrame):
         # --- ช่องกรอก "อีเมล" (Register) ---
         reg_email_frame = ctk.CTkFrame(self.register_tab_frame, fg_color="#FFF0F5", corner_radius=15,
                                        border_width=1, border_color="#FFEBEE")
-        # โหลด icon email (สมมติว่า main.py มี load_image แล้ว)
+        # โหลด icon email 
         reg_email_icon = self.main_app.load_image("email_icon.png", size=(20, 20)) 
         reg_email_icon_label = ctk.CTkLabel(reg_email_frame, text="", image=reg_email_icon)
         reg_email_icon_label.pack(side="left", padx=(10, 5))
@@ -186,7 +178,7 @@ class LoginWindow(ctk.CTkFrame):
         # --- ช่องกรอก "ชื่อ-นามสกุล" (Register) ---
         reg_name_frame = ctk.CTkFrame(self.register_tab_frame, fg_color="#FFF0F5", corner_radius=15,
                                       border_width=1, border_color="#FFEBEE")
-        # โหลด icon name (สมมติว่า main.py มี load_image แล้ว)
+        # โหลด icon name 
         reg_name_icon = self.main_app.load_image("name_icon.png", size=(20, 20)) 
         reg_name_icon_label = ctk.CTkLabel(reg_name_frame, text="", image=reg_name_icon)
         reg_name_icon_label.pack(side="left", padx=(10, 5))
@@ -219,10 +211,7 @@ class LoginWindow(ctk.CTkFrame):
                                         command=self.handle_register) # กดแล้วเรียก handle_register
         register_button.pack(fill="x", pady=15, padx=10)
         # --- จบ Tab "สมัครสมาชิก" ---
-        
         # --- จบการสร้าง UI ทั้งหมด ---
-
-    # --- (ลบฟังก์ชัน create_entry_with_icon, setup_login_tab, setup_register_tab) ---
 
     def handle_login(self):
         """

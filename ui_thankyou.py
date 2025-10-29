@@ -1,5 +1,3 @@
-# M:/doll_shop/ui_thankyou.py (ปรับสไตล์ให้ง่าย)
-
 import customtkinter as ctk
 
 class ThankYouWindow(ctk.CTkFrame):
@@ -9,12 +7,7 @@ class ThankYouWindow(ctk.CTkFrame):
         """
         super().__init__(parent, fg_color="#F8F9FA") # ตั้งสีพื้นหลัง frame หลัก
         self.main_app = main_app
-        # --- ไม่ต้องมี self.assets ถ้าใช้ main_app.load_image ---
-        # self.assets = main_app.assets 
         self.order_id_received = None # เปลี่ยนชื่อตัวแปรให้ชัดเจน
-
-        # ไม่ต้องสร้าง UI ทันที รอ on_show เรียก
-        # self.setup_ui() 
 
     def on_show(self, order_id=None):
         """

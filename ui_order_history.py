@@ -1,7 +1,5 @@
 import customtkinter as ctk
-# Order object is still needed to structure the data for display
 from models import Order 
-# Session and Database are accessed via main_app, direct import not strictly needed for UI
 
 class OrderHistoryWindow(ctk.CTkFrame):
     def __init__(self, parent, main_app):
@@ -72,14 +70,14 @@ class OrderHistoryWindow(ctk.CTkFrame):
         orders_frame_scrollable.grid(row=1, column=0, sticky="nsew", padx=30, pady=10) 
         
         # --- 4. ดึงข้อมูลประวัติการสั่งซื้อ ---
-        # --- vvvv เพิ่มการตรวจสอบตรงนี้ vvvv ---
+        # --- เพิ่มการตรวจสอบตรงนี้ ---
         orders_data_list = [] # เริ่มต้นด้วย list ว่าง
         # เช็คก่อนว่ามี user login อยู่หรือไม่
         if self.session.is_logged_in(): 
             current_user_id = self.session.current_user.user_id 
             # ถ้า login อยู่ ค่อยไปดึงข้อมูล order จาก DB
             orders_data_list = self.db.get_user_orders(current_user_id) 
-        # --- ^^^^ สิ้นสุดการตรวจสอบ ^^^^ ---
+        # --- สิ้นสุดการตรวจสอบ ---
 
         # --- 5. ตรวจสอบว่ามีประวัติการสั่งซื้อหรือไม่ ---
         # (โค้ดส่วนนี้จะทำงานได้ถูกต้อง แม้ orders_data_list จะเป็น list ว่าง)
@@ -222,5 +220,3 @@ class OrderHistoryWindow(ctk.CTkFrame):
                 order_card.pack(fill="x", pady=10) 
             # --- จบ Loop สร้างการ์ด ---
         # --- จบกรณีมีประวัติ ---
-
-    # --- (ลบฟังก์ชัน create_header และ create_order_card เพราะย้ายโค้ดไปแล้ว) ---

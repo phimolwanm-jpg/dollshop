@@ -1,7 +1,6 @@
 import customtkinter as ctk
 from tkinter import messagebox
-# datetime is not directly used here anymore as formatting is done in models or DB
-# from datetime import datetime 
+
 
 class ReceiptWindow(ctk.CTkFrame):
     def __init__(self, parent, main_app):
@@ -9,11 +8,7 @@ class ReceiptWindow(ctk.CTkFrame):
         self.main_app = main_app
         # ดึง object ที่จำเป็นจาก main_app
         self.db = main_app.db 
-        # self.session = main_app.session # session ไม่ได้ใช้ในหน้านี้
-        self.order_id_to_show = None # เปลี่ยนชื่อตัวแปรให้ชัดเจน
-        
-        # ไม่ต้องสร้าง UI ทันที รอ on_show เรียก
-        # self.setup_ui() 
+        self.order_id_to_show = None # เปลี่ยนชื่อตัวแปรให้ชัดเจน 
         
     def on_show(self, order_id=None):
         """
@@ -51,8 +46,6 @@ class ReceiptWindow(ctk.CTkFrame):
             # --- ถ้าได้รับ order_id: สร้างหน้า UI ใบเสร็จ ---
             self.setup_ui() 
 
-    # --- (ลบฟังก์ชัน show_error เพราะรวมไว้ใน on_show แล้ว) ---
-    
     def setup_ui(self):
         """สร้างองค์ประกอบ UI ทั้งหมดของหน้าใบเสร็จ"""
         # --- 1. กำหนดการขยายตัวของ Grid หลัก ---
@@ -397,9 +390,6 @@ class ReceiptWindow(ctk.CTkFrame):
             )
             footer_text2.pack(pady=(5, 0))
             # --- จบการสร้างเนื้อหาใบเสร็จ ---
-
-    # --- (ลบฟังก์ชัน create_header, create_receipt_content) ---
-    # --- (ลบฟังก์ชัน add_info_row, add_item_row) ---
     
     def print_receipt(self):
         """ฟังก์ชันพิมพ์ใบเสร็จ (ยังทำไม่ได้จริง แค่แสดง popup)"""
