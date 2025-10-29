@@ -1,10 +1,8 @@
-# M:/doll_shop/models.py (ปรับสไตล์ให้ง่าย)
-
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, List
 
-# --- Data Classes (เหมือนเดิม) ---
+# --- Data Classes  ---
 @dataclass
 class User:
     user_id: int
@@ -169,7 +167,7 @@ class Session:
         # ต้องเช็ค is_logged_in() ก่อน เพื่อป้องกัน error ถ้า current_user เป็น None
         return self.is_logged_in() and self.current_user.is_admin()
 
-# --- Cart Management (ปรับให้ง่าย) ---
+# --- Cart Management ---
 @dataclass
 class CartItem:
     # เก็บ Product object ทั้งก้อน และจำนวน
@@ -186,8 +184,6 @@ class CartItem:
         return f"฿{total:,.2f}"
 
 class Cart:
-    # --- (ลบ _instance และ __new__ ทิ้งไป) ---
-    
     def __init__(self):
         """
         เป็นคลาสธรรมดา ไม่ใช่ Singleton แล้ว
