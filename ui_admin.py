@@ -235,7 +235,7 @@ class AdminWindow(ctk.CTkFrame):
         filepath = filedialog.askopenfilename(
             title="เลือกรูปภาพสินค้า", 
             # กำหนดประเภทไฟล์ที่เลือกได้
-            filetypes=(("ไฟล์รูปภาพ", "*.jpg *.jpeg *.png"), ("ทุกไฟล์", "*.*")), 
+            filetypes=(("Image files", "*.jpg *.jpeg *.png *.gif *.bmp *.webp"), ("All files", "*.*")), 
             parent=self # ให้หน้าต่างนี้เป็น parent (เพื่อให้ focus ถูกต้อง)
         )
         # ถ้าผู้ใช้กด Cancel (filepath จะเป็น None หรือ "") ก็ไม่ต้องทำอะไร
