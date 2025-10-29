@@ -29,7 +29,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
         self.grid_rowconfigure(1, weight=1)    
 
         # --- 2. สร้างส่วนหัว (Header) ---
-        # (ย้ายโค้ดจาก create_header มาไว้ตรงนี้)
         header = ctk.CTkFrame(self, fg_color="white", corner_radius=0, height=70)
         # วาง header แถวบนสุด (row=0) ยืดเต็มความกว้าง (sticky="ew")
         header.grid(row=0, column=0, sticky="ew") 
@@ -99,7 +98,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
         main_frame.grid_columnconfigure((0, 1, 2, 3), weight=1) 
 
         # --- 4. สร้างการ์ดสถิติ ---
-        # (ย้ายโค้ดจาก create_stats_cards มาไว้ตรงนี้)
         
         # 4.1 ดึงข้อมูลสถิติจาก DB
         stats = self.db.get_dashboard_stats()
@@ -138,8 +136,7 @@ class AdminDashboardWindow(ctk.CTkFrame):
         
         # 4.3 วนลูปสร้างการ์ดแต่ละใบ
         for i, card_data_item in enumerate(cards_data):
-            # --- สร้างการ์ด 1 ใบ (โค้ดจาก create_stat_card เดิม) ---
-            # (ย้ายโค้ดสร้างการ์ดมาไว้ใน loop นี้)
+            # --- สร้างการ์ด 1 ใบ  ---
             card = ctk.CTkFrame(main_frame, # ใส่การ์ดลงใน main_frame
                                 fg_color="white", 
                                 corner_radius=15, 
@@ -195,7 +192,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
         chart_frame.grid_columnconfigure((0, 1), weight=1) 
 
         # --- 6. สร้างส่วน "สินค้าขายดี" ---
-        # (ย้ายโค้ดจาก create_top_products_section มาไว้ตรงนี้)
         top_product_section = ctk.CTkFrame(chart_frame, # ใส่ใน chart_frame คอลัมน์ 0
                                            fg_color="white", corner_radius=15)
         top_product_section.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
@@ -264,7 +260,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
         # --- จบส่วนสินค้าขายดี ---
         
         # --- 7. สร้างส่วน "สินค้าสต็อกต่ำ" ---
-        # (ย้ายโค้ดจาก create_low_stock_section มาไว้ตรงนี้)
         low_stock_section = ctk.CTkFrame(chart_frame, # ใส่ใน chart_frame คอลัมน์ 1
                                          fg_color="white", corner_radius=15)
         low_stock_section.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
