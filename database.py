@@ -72,6 +72,7 @@ class Database:
             ''')
             
             # ตารางคำสั่งซื้อ
+            # หมายเหตุ: created_at ที่นี่จะเก็บเป็น UTC (GMT+0) โดย DEFAULT
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS orders (
                     order_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -132,7 +133,7 @@ class Database:
         finally:
             self.close()
 
-    # ========== ฟังก์ชันจัดการผู้ใช้ ==========
+    # ========== ฟังก์ชันจัดการผู้ใช้ (ไม่มีการแก้ไข) ==========
     
     def authenticate_user(self, username, password):
         """ตรวจสอบการเข้าสู่ระบบ"""
@@ -229,7 +230,7 @@ class Database:
         finally:
             self.close()
 
-    # ========== ฟังก์ชันจัดการสินค้า ==========
+    # ========== ฟังก์ชันจัดการสินค้า (ไม่มีการแก้ไข) ==========
     
     def get_all_products(self, category=None, search_term=None, limit=None):
         """ดึงข้อมูลสินค้าทั้งหมด"""
@@ -333,7 +334,7 @@ class Database:
         finally:
             self.close()
 
-    # ========== ฟังก์ชันอื่นๆ ==========
+    # ========== ฟังก์ชันอื่นๆ (ไม่มีการแก้ไข) ==========
     
     def get_categories(self):
         """ดึงหมวดหมู่สินค้าทั้งหมด"""
@@ -351,10 +352,12 @@ class Database:
         finally:
             self.close()
 
+    # ========== ฟังก์ชันจัดการ Order (มีการแก้ไขเวลา) ==========
+    
     def create_order(self, user_id, total_amount, items, payment_method, 
                      shipping_address, slip_image_filename=None,
                      buyer_name=None, buyer_phone=None, buyer_address=None):
-        """สร้างคำสั่งซื้อใหม่"""
+        """สร้างคำสั่งซื้อใหม่ (เวลาจะถูกบันทึกเป็น UTC อัตโนมัติ)"""
         conn = None
         try:
             conn = sqlite3.connect(self.db_name)
@@ -408,14 +411,23 @@ class Database:
                 conn.close()
 
     def get_user_orders(self, user_id):
-        """ดึงคำสั่งซื้อของผู้ใช้"""
+        """
+        ดึงคำสั่งซื้อของผู้ใช้ (*** แก้ไข: แปลงเวลา created_at เป็น GMT+7 ***)
+        """
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT o.*, GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
+                SELECT 
+                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
+                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url, 
+                    
+                    -- แก้ไข: แปลงเวลา UTC เป็น GMT+7 (เวลาไทย) --
+                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at, 
+                    
+                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
                 FROM orders o 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
                 LEFT JOIN products p ON oi.product_id = p.product_id
@@ -432,15 +444,24 @@ class Database:
             self.close()
 
     def get_all_orders(self):
-        """ดึงคำสั่งซื้อทั้งหมด (สำหรับ Admin)"""
+        """
+        ดึงคำสั่งซื้อทั้งหมด (สำหรับ Admin) (*** แก้ไข: แปลงเวลา created_at เป็น GMT+7 ***)
+        """
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT o.*, u.username, u.full_name, 
-                       GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
+                SELECT 
+                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
+                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url, 
+                    
+                    -- แก้ไข: แปลงเวลา UTC เป็น GMT+7 (เวลาไทย) --
+                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at, 
+                    
+                    u.username, u.full_name, 
+                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
@@ -473,7 +494,9 @@ class Database:
             self.close()
 
     def get_order_details(self, order_id):
-        """ดึงรายละเอียดคำสั่งซื้อ"""
+        """
+        ดึงรายละเอียดคำสั่งซื้อ (*** แก้ไข: แปลงเวลา created_at เป็น GMT+7 ***)
+        """
         cursor = self.connect()
         if not cursor:
             return None
@@ -484,7 +507,7 @@ class Database:
                     o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
                     o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url, 
                     
-                    -- นี่คือส่วนที่แก้ไข: แปลงเวลา UTC เป็น GMT+7 (เวลาไทย) --
+                    -- แก้ไข: แปลงเวลา UTC เป็น GMT+7 (เวลาไทย) --
                     STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at, 
                     
                     u.username, u.full_name, 
@@ -525,10 +548,12 @@ class Database:
         finally:
             self.close()
 
-    # ========== ฟังก์ชันสำหรับ Dashboard และรายงาน ==========
+    # ========== ฟังก์ชันสำหรับ Dashboard และรายงาน (มีการแก้ไขเวลา) ==========
     
     def get_daily_sales_summary(self, date_str):
-        """ดึงยอดขายรายวัน"""
+        """
+        ดึงยอดขายรายวัน (*** แก้ไข: เปรียบเทียบเวลาไทย ***)
+        """
         cursor = self.connect()
         if not cursor:
             return (0, 0.0)
@@ -537,7 +562,7 @@ class Database:
             cursor.execute("""
                 SELECT COUNT(*), COALESCE(SUM(total_amount), 0)
                 FROM orders 
-                WHERE DATE(created_at) = DATE(?) AND status != 'cancelled'
+                WHERE DATE(created_at, '+7 hours') = DATE(?) AND status != 'cancelled'
             """, (date_str,))
             result = cursor.fetchone()
             total_orders = result[0] if result else 0
@@ -550,20 +575,26 @@ class Database:
             self.close()
 
     def get_orders_for_date(self, date_str):
-        """ดึงรายการคำสั่งซื้อในวันที่กำหนด"""
+        """
+        ดึงรายการคำสั่งซื้อในวันที่กำหนด (*** แก้ไข: แปลงเวลา ***)
+        """
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT o.*, u.username, u.full_name, 
-                       GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
+                SELECT 
+                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
+                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url,
+                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at, 
+                    u.username, u.full_name, 
+                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
                 LEFT JOIN products p ON oi.product_id = p.product_id
-                WHERE DATE(o.created_at) = DATE(?) 
+                WHERE DATE(o.created_at, '+7 hours') = DATE(?) 
                 GROUP BY o.order_id 
                 ORDER BY o.created_at DESC
             ''', (date_str,))
@@ -578,8 +609,7 @@ class Database:
     # vvvv ฟังก์ชันใหม่สำหรับดูรายได้รายวัน/เดือน/ปี vvvv
     def get_sales_by_period(self, period):
         """
-        ดึงข้อมูลยอดขายรวมตามช่วงเวลา (period: 'day', 'month', 'year')
-        Output: ลิสต์ของ dict ที่มีคอลัมน์ [sales_period, total_orders, total_revenue]
+        ดึงข้อมูลยอดขายรวมตามช่วงเวลา (*** แก้ไข: แปลงเวลา ***)
         """
         cursor = self.connect()
         if not cursor:
@@ -600,7 +630,7 @@ class Database:
                 return []
                 
             query = f'''
-                SELECT STRFTIME('{format_str}', created_at) AS {alias},
+                SELECT STRFTIME('{format_str}', created_at, '+7 hours') AS {alias},
                        COUNT(order_id) AS total_orders,
                        COALESCE(SUM(total_amount), 0) AS total_revenue
                 FROM orders
@@ -617,12 +647,11 @@ class Database:
         finally:
             self.close()
 
-    # ========== ฟังก์ชันสำหรับดูยอดขายตามวันที่เลือก ==========
+    # ========== ฟังก์ชันสำหรับดูยอดขายตามวันที่เลือก (มีการแก้ไขเวลา) ==========
     
     def get_sales_by_date(self, date_str):
         """
-        ดึงยอดขายตามวันที่ที่ระบุ (YYYY-MM-DD)
-        Output: [{'sale_date': '2024-01-15', 'order_count': 5, 'total_revenue': 15000.0}]
+        ดึงยอดขายตามวันที่ที่ระบุ (*** แก้ไข: แปลงเวลา ***)
         """
         cursor = self.connect()
         if not cursor:
@@ -631,12 +660,12 @@ class Database:
         try:
             query = """
                 SELECT 
-                    DATE(created_at) as sale_date,
+                    DATE(created_at, '+7 hours') as sale_date,
                     COUNT(*) as order_count,
                     COALESCE(SUM(total_amount), 0) as total_revenue
                 FROM orders
-                WHERE DATE(created_at) = DATE(?) AND status != 'cancelled'
-                GROUP BY DATE(created_at)
+                WHERE DATE(created_at, '+7 hours') = DATE(?) AND status != 'cancelled'
+                GROUP BY sale_date
             """
             cursor.execute(query, (date_str,))
             result = cursor.fetchall()
@@ -649,8 +678,7 @@ class Database:
     
     def get_sales_by_month(self, month_str):
         """
-        ดึงยอดขายตามเดือน (YYYY-MM)
-        Output: [{'sale_month': '2024-01', 'order_count': 150, 'total_revenue': 450000.0}]
+        ดึงยอดขายตามเดือน (*** แก้ไข: แปลงเวลา ***)
         """
         cursor = self.connect()
         if not cursor:
@@ -659,12 +687,12 @@ class Database:
         try:
             query = """
                 SELECT 
-                    STRFTIME('%Y-%m', created_at) as sale_month,
+                    STRFTIME('%Y-%m', created_at, '+7 hours') as sale_month,
                     COUNT(*) as order_count,
                     COALESCE(SUM(total_amount), 0) as total_revenue
                 FROM orders
-                WHERE STRFTIME('%Y-%m', created_at) = ? AND status != 'cancelled'
-                GROUP BY STRFTIME('%Y-%m', created_at)
+                WHERE STRFTIME('%Y-%m', created_at, '+7 hours') = ? AND status != 'cancelled'
+                GROUP BY sale_month
             """
             cursor.execute(query, (month_str,))
             result = cursor.fetchall()
@@ -677,8 +705,7 @@ class Database:
     
     def get_sales_by_year(self, year_str):
         """
-        ดึงยอดขายตามปี (YYYY)
-        Output: [{'sale_year': '2024', 'order_count': 1800, 'total_revenue': 5400000.0}]
+        ดึงยอดขายตามปี (*** แก้ไข: แปลงเวลา ***)
         """
         cursor = self.connect()
         if not cursor:
@@ -687,12 +714,12 @@ class Database:
         try:
             query = """
                 SELECT 
-                    STRFTIME('%Y', created_at) as sale_year,
+                    STRFTIME('%Y', created_at, '+7 hours') as sale_year,
                     COUNT(*) as order_count,
                     COALESCE(SUM(total_amount), 0) as total_revenue
                 FROM orders
-                WHERE STRFTIME('%Y', created_at) = ? AND status != 'cancelled'
-                GROUP BY STRFTIME('%Y', created_at)
+                WHERE STRFTIME('%Y', created_at, '+7 hours') = ? AND status != 'cancelled'
+                GROUP BY sale_year
             """
             cursor.execute(query, (year_str,))
             result = cursor.fetchall()
@@ -705,8 +732,7 @@ class Database:
     
     def get_sales_by_date_range(self, start_date, end_date):
         """
-        ดึงยอดขายตามช่วงวันที่ (YYYY-MM-DD)
-        Output: [{'sale_date': '2024-01-15', 'order_count': 5, 'total_revenue': 15000.0}, ...]
+        ดึงยอดขายตามช่วงวันที่ (*** แก้ไข: แปลงเวลา ***)
         """
         cursor = self.connect()
         if not cursor:
@@ -715,13 +741,13 @@ class Database:
         try:
             query = """
                 SELECT 
-                    DATE(created_at) as sale_date,
+                    DATE(created_at, '+7 hours') as sale_date,
                     COUNT(*) as order_count,
                     COALESCE(SUM(total_amount), 0) as total_revenue
                 FROM orders
-                WHERE DATE(created_at) BETWEEN DATE(?) AND DATE(?)
+                WHERE DATE(created_at, '+7 hours') BETWEEN DATE(?) AND DATE(?)
                   AND status != 'cancelled'
-                GROUP BY DATE(created_at)
+                GROUP BY sale_date
                 ORDER BY sale_date DESC
             """
             cursor.execute(query, (start_date, end_date))
@@ -735,7 +761,7 @@ class Database:
     
     def get_orders_by_date(self, date_str):
         """
-        ดึงรายการคำสั่งซื้อในวันที่กำหนด พร้อมรายละเอียดเพิ่มเติม
+        ดึงรายการคำสั่งซื้อในวันที่กำหนด (*** แก้ไข: แปลงเวลา ***)
         """
         cursor = self.connect()
         if not cursor:
@@ -743,14 +769,17 @@ class Database:
         
         try:
             query = '''
-                SELECT o.*, 
-                       COALESCE(u.full_name, o.buyer_name) as customer_name,
-                       GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
+                SELECT 
+                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
+                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url,
+                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at,
+                    COALESCE(u.full_name, o.buyer_name) as customer_name,
+                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
                 LEFT JOIN products p ON oi.product_id = p.product_id
-                WHERE DATE(o.created_at) = DATE(?)
+                WHERE DATE(o.created_at, '+7 hours') = DATE(?)
                 GROUP BY o.order_id 
                 ORDER BY o.created_at DESC
             '''
@@ -765,7 +794,7 @@ class Database:
     
     def get_orders_by_month(self, month_str):
         """
-        ดึงรายการคำสั่งซื้อในเดือนที่กำหนด (YYYY-MM)
+        ดึงรายการคำสั่งซื้อในเดือนที่กำหนด (*** แก้ไข: แปลงเวลา ***)
         """
         cursor = self.connect()
         if not cursor:
@@ -773,14 +802,17 @@ class Database:
         
         try:
             query = '''
-                SELECT o.*, 
-                       COALESCE(u.full_name, o.buyer_name) as customer_name,
-                       GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
+                SELECT 
+                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
+                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url,
+                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at,
+                    COALESCE(u.full_name, o.buyer_name) as customer_name,
+                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
                 LEFT JOIN products p ON oi.product_id = p.product_id
-                WHERE STRFTIME('%Y-%m', o.created_at) = ?
+                WHERE STRFTIME('%Y-%m', o.created_at, '+7 hours') = ?
                 GROUP BY o.order_id 
                 ORDER BY o.created_at DESC
             '''
@@ -795,7 +827,7 @@ class Database:
     
     def get_orders_by_year(self, year_str):
         """
-        ดึงรายการคำสั่งซื้อในปีที่กำหนด (YYYY)
+        ดึงรายการคำสั่งซื้อในปีที่กำหนด (*** แก้ไข: แปลงเวลา ***)
         """
         cursor = self.connect()
         if not cursor:
@@ -803,14 +835,17 @@ class Database:
         
         try:
             query = '''
-                SELECT o.*, 
-                       COALESCE(u.full_name, o.buyer_name) as customer_name,
-                       GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
+                SELECT 
+                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
+                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url,
+                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at,
+                    COALESCE(u.full_name, o.buyer_name) as customer_name,
+                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
                 LEFT JOIN products p ON oi.product_id = p.product_id
-                WHERE STRFTIME('%Y', o.created_at) = ?
+                WHERE STRFTIME('%Y', o.created_at, '+7 hours') = ?
                 GROUP BY o.order_id 
                 ORDER BY o.created_at DESC
             '''
@@ -825,9 +860,7 @@ class Database:
     
     def get_top_products_by_period(self, period_type, period_value, limit=10):
         """
-        ดึงสินค้าขายดีตามช่วงเวลา
-        period_type: 'day', 'month', 'year'
-        period_value: 'YYYY-MM-DD', 'YYYY-MM', 'YYYY'
+        ดึงสินค้าขายดีตามช่วงเวลา (*** แก้ไข: แปลงเวลา ***)
         """
         cursor = self.connect()
         if not cursor:
@@ -835,11 +868,11 @@ class Database:
         
         try:
             if period_type == 'day':
-                where_clause = "DATE(o.created_at) = DATE(?)"
+                where_clause = "DATE(o.created_at, '+7 hours') = DATE(?)"
             elif period_type == 'month':
-                where_clause = "STRFTIME('%Y-%m', o.created_at) = ?"
+                where_clause = "STRFTIME('%Y-%m', o.created_at, '+7 hours') = ?"
             elif period_type == 'year':
-                where_clause = "STRFTIME('%Y', o.created_at) = ?"
+                where_clause = "STRFTIME('%Y', o.created_at, '+7 hours') = ?"
             else:
                 return []
             
@@ -866,8 +899,8 @@ class Database:
     
     def get_sales_comparison(self):
         """
-        เปรียบเทียบยอดขายระหว่างวันนี้, เมือนนี้, ปีนี้ กับช่วงเวลาก่อนหน้า
-        Output: {'today': {...}, 'yesterday': {...}, 'this_month': {...}, ...}
+        เปรียบเทียบยอดขาย (*** แก้ไข: แปลงเวลา ***)
+        (ใช้ 'localtime' ซึ่งจะดึงเวลาตามเครื่องที่รัน)
         """
         cursor = self.connect()
         if not cursor:
@@ -880,7 +913,7 @@ class Database:
             cursor.execute("""
                 SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
                 FROM orders
-                WHERE DATE(created_at) = DATE('now', 'localtime') AND status != 'cancelled'
+                WHERE DATE(created_at, '+7 hours') = DATE('now', 'localtime') AND status != 'cancelled'
             """)
             row = cursor.fetchone()
             result['today'] = {'orders': row[0], 'revenue': row[1]}
@@ -889,7 +922,7 @@ class Database:
             cursor.execute("""
                 SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
                 FROM orders
-                WHERE DATE(created_at) = DATE('now', 'localtime', '-1 day') AND status != 'cancelled'
+                WHERE DATE(created_at, '+7 hours') = DATE('now', 'localtime', '-1 day') AND status != 'cancelled'
             """)
             row = cursor.fetchone()
             result['yesterday'] = {'orders': row[0], 'revenue': row[1]}
@@ -898,7 +931,7 @@ class Database:
             cursor.execute("""
                 SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
                 FROM orders
-                WHERE STRFTIME('%Y-%m', created_at) = STRFTIME('%Y-%m', 'now', 'localtime') 
+                WHERE STRFTIME('%Y-%m', created_at, '+7 hours') = STRFTIME('%Y-%m', 'now', 'localtime') 
                   AND status != 'cancelled'
             """)
             row = cursor.fetchone()
@@ -908,7 +941,7 @@ class Database:
             cursor.execute("""
                 SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
                 FROM orders
-                WHERE STRFTIME('%Y-%m', created_at) = STRFTIME('%Y-%m', 'now', 'localtime', '-1 month') 
+                WHERE STRFTIME('%Y-%m', created_at, '+7 hours') = STRFTIME('%Y-%m', 'now', 'localtime', '-1 month') 
                   AND status != 'cancelled'
             """)
             row = cursor.fetchone()
@@ -918,7 +951,7 @@ class Database:
             cursor.execute("""
                 SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
                 FROM orders
-                WHERE STRFTIME('%Y', created_at) = STRFTIME('%Y', 'now', 'localtime') 
+                WHERE STRFTIME('%Y', created_at, '+7 hours') = STRFTIME('%Y', 'now', 'localtime') 
                   AND status != 'cancelled'
             """)
             row = cursor.fetchone()
@@ -928,7 +961,7 @@ class Database:
             cursor.execute("""
                 SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
                 FROM orders
-                WHERE STRFTIME('%Y', created_at) = STRFTIME('%Y', 'now', 'localtime', '-1 year') 
+                WHERE STRFTIME('%Y', created_at, '+7 hours') = STRFTIME('%Y', 'now', 'localtime', '-1 year') 
                   AND status != 'cancelled'
             """)
             row = cursor.fetchone()
@@ -1052,14 +1085,20 @@ class Database:
             self.close()
 
     def get_recent_orders(self, limit=10):
-        """ดึงคำสั่งซื้อล่าสุด"""
+        """
+        ดึงคำสั่งซื้อล่าสุด (*** แก้ไข: แปลงเวลา ***)
+        """
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT o.*, u.username, u.full_name 
+                SELECT 
+                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
+                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url,
+                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at,
+                    u.username, u.full_name 
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id
                 ORDER BY o.created_at DESC 
@@ -1074,12 +1113,15 @@ class Database:
             self.close()
 
     def get_top_selling_products(self, limit=5):
-        """ดึงสินค้าขายดี"""
+        """
+        ดึงสินค้าขายดี (*** แก้ไข: แปลงเวลา ***)
+        """
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
+            # หมายเหตุ: เราจะดึงยอดขายรวม 'ตลอดเวลา' ดังนั้น ไม่ต้องกรองเวลา
             cursor.execute('''
                 SELECT p.product_id, p.name, p.category, p.price, p.image_url,
                        SUM(oi.quantity) as total_sold, 
@@ -1101,12 +1143,15 @@ class Database:
             self.close()
 
     def get_sales_by_category(self):
-        """ดึงยอดขายแยกตามหมวดหมู่"""
+        """
+Data (*** แก้ไข: แปลงเวลา ***)
+        """
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
+            # หมายเหตุ: เราจะดึงยอดขายรวม 'ตลอดเวลา' ดังนั้น ไม่ต้องกรองเวลา
             cursor.execute('''
                 SELECT p.category, 
                        SUM(oi.quantity) as total_quantity, 
