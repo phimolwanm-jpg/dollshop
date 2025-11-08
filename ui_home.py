@@ -46,8 +46,6 @@ class HomeWindow(ctk.CTkFrame):
             border_color="#FFEBEE"
         )
         header.grid(row=0, column=0, sticky="ew", pady=(0, 5))
-        # (หมายเหตุ: ลบ header.grid_columnconfigure(1, weight=1) ออก
-        # เพื่อให้ pack ทำงานแบ่งพื้นที่ได้ดีขึ้น)
 
         # --- 2.1 ใส่ Logo และชื่อร้าน (ชิดซ้าย) ---
         shop_title_label = ctk.CTkLabel(
@@ -62,20 +60,9 @@ class HomeWindow(ctk.CTkFrame):
         right_header_frame = ctk.CTkFrame(header, fg_color="transparent")
         right_header_frame.pack(side="right", padx=20, pady=10)
 
-        # --- (vVv นี่คือปุ่ม "เกี่ยวกับเรา" ที่ย้ายมาใหม่ vVv) ---
-        # สร้างปุ่ม "เกี่ยวกับเรา" ใน Header
-        about_btn = ctk.CTkButton(
-            right_header_frame,
-            text="ℹ️ เกี่ยวกับเรา",
-            fg_color="transparent", hover_color="#FFE4E1", text_color="#6D4C41",
-            font=("IBM Plex Sans Thai", 14),
-            command=lambda: self.main_app.navigate_to('AboutWindow')
-        )
-        about_btn.pack(side="left", padx=5)
-        # --- (vVv จบส่วนที่เพิ่ม vVv) ---
+        # --- (ปุ่ม "เกี่ยวกับเรา" ถูกย้ายจากตรงนี้ ไปอยู่ข้างล่าง) ---
 
         # --- (NEW) 2.3 สร้าง Frame ค้นหา (ตรงกลาง) ---
-        # (วางก่อน right_header_frame จะถูก pack ไปชิดขวา ทำให้ search อยู่ตรงกลาง)
         search_frame = ctk.CTkFrame(header, fg_color="transparent")
         search_frame.pack(side="left", padx=20, pady=10, fill="x", expand=True) 
         
@@ -90,7 +77,6 @@ class HomeWindow(ctk.CTkFrame):
             fg_color="#FFF0F5",
             font=("IBM Plex Sans Thai", 14)
         )
-        # (NEW) ผูกปุ่ม Enter
         search_entry.bind("<Return>", self.on_search) 
         search_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
@@ -102,13 +88,11 @@ class HomeWindow(ctk.CTkFrame):
             corner_radius=15,
             font=("IBM Plex Sans Thai", 14, "bold"),
             fg_color="#FFB6C1", hover_color="#FFC0CB", text_color="white",
-            command=self.on_search # (NEW) เรียก on_search
+            command=self.on_search
         )
         search_button.pack(side="left")
-        # --- (จบส่วน NEW 2.3) ---
 
-        # ---  เพิ่มการตรวจสอบ ---
-        # --- 2.4 (เดิม 2.3) แสดงข้อความต้อนรับ (ถ้า Login แล้ว) ---
+        # --- 2.4 แสดงข้อความต้อนรับ (ถ้า Login แล้ว) ---
         if self.session.is_logged_in(): # เช็คว่า login หรือยัง
             user_full_name = self.session.current_user.full_name
             welcome_text = f"สวัสดี, {user_full_name}"
@@ -120,10 +104,9 @@ class HomeWindow(ctk.CTkFrame):
             )
             welcome_label.pack(side="left", padx=10)
 
-            # --- 2.5 (เดิม 2.4) ตรวจสอบว่าเป็น Admin หรือไม่ ---
+            # --- 2.5 ตรวจสอบว่าเป็น Admin หรือไม่ ---
             is_current_user_admin = self.session.is_admin()
             if is_current_user_admin:
-                # (... โค้ดปุ่ม Admin ... )
                 admin_dashboard_btn = ctk.CTkButton(
                     right_header_frame,
                     text="📊 Dashboard",
@@ -153,9 +136,20 @@ class HomeWindow(ctk.CTkFrame):
                     command=lambda: self.main_app.navigate_to('AdminWindow')
                 )
                 admin_product_btn.pack(side="left", padx=5)
-            # --- จบเงื่อนไข if is_admin ---
 
-            # --- 2.6 (เดิม 2.5) สร้างปุ่มสำหรับผู้ใช้ทุกคน (ถ้า Login แล้ว) ---
+            # --- 2.6 สร้างปุ่มสำหรับผู้ใช้ทุกคน (ถ้า Login แล้ว) ---
+            
+            # --- (vVv ย้ายปุ่ม "เกี่ยวกับเรา" มาไว้ตรงนี้ vVv) ---
+            about_btn = ctk.CTkButton(
+                right_header_frame,
+                text="ℹ️ เกี่ยวกับเรา",
+                fg_color="transparent", hover_color="#FFE4E1", text_color="#6D4C41",
+                font=("IBM Plex Sans Thai", 14),
+                command=lambda: self.main_app.navigate_to('AboutWindow')
+            )
+            about_btn.pack(side="left", padx=5)
+            # --- (vVv จบส่วนที่ย้ายมา vVv) ---
+
             profile_btn = ctk.CTkButton(
                 right_header_frame,
                 text="โปรไฟล์",
@@ -192,9 +186,6 @@ class HomeWindow(ctk.CTkFrame):
                 command=self.main_app.on_logout
             )
             logout_btn.pack(side="left", padx=10)
-        # --- จบการตรวจสอบ if self.session.is_logged_in()---
-        
-        # --- ( ... โค้ดส่วนที่เหลือของ setup_ui เหมือนเดิม ... ) ---
         
         # --- 3. สร้าง Frame หลักสำหรับเนื้อหา (เลื่อนได้) ---
         main_content_frame = ctk.CTkScrollableFrame(
@@ -206,7 +197,7 @@ class HomeWindow(ctk.CTkFrame):
         main_content_frame.grid_columnconfigure(0, weight=1)
 
         # --- 4. สร้างส่วน Banner ---
-        banner_image = self.main_app.load_image("banner.png", size=(2100, 250)) # ใช้ขนาดเดิมไปก่อน
+        banner_image = self.main_app.load_image("banner.png", size=(2100, 250)) 
         banner_label = ctk.CTkLabel(
             main_content_frame,
             text="",
@@ -304,8 +295,19 @@ class HomeWindow(ctk.CTkFrame):
 
             product_card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
 
-        # --- (vVv ส่วนที่ 7 (Footer) ถูกลบออกแล้ว vVv) ---
-        # (Footer เดิมอยู่ตรงนี้)
+        # --- 7. สร้างส่วน Footer (ลบปุ่ม "เกี่ยวกับเรา" ออกแล้ว) ---
+        footer_frame = ctk.CTkFrame(main_content_frame, fg_color="transparent")
+        footer_frame.grid(row=3, column=0, sticky="ew", pady=20)
+        
+        # (เราอาจจะใส่ข้อความลิขสิทธิ์ไว้เล็กๆ แทน)
+        footer_label = ctk.CTkLabel(
+            footer_frame, 
+            text="© 2025 Dollie Shop by Phimonwan M.",
+            font=("IBM Plex Sans Thai", 12),
+            text_color="gray"
+        )
+        footer_label.pack(pady=10)
+
 
     # --- (NEW) ฟังก์ชันสำหรับจัดการการค้นหา ---
     def on_search(self, event=None): # event=None เพื่อรองรับการกด Enter
