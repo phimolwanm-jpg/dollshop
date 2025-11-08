@@ -1,7 +1,7 @@
 """
 PDF Receipt Generator - สไตล์สลิปเซเว่น-อีเลฟเว่น
 สร้างใบเสร็จแบบสลิปความร้อน พร้อม VAT 7%
-ใช้ฟอนต์ภาษาไทย Sarabun จาก Google Fonts
+ใช้ฟอนต์ไทยที่มากับ Windows (Angsana New, Cordia New, Browallia New)
 """
 
 from reportlab.lib.pagesizes import letter
@@ -11,57 +11,70 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from datetime import datetime
 import os
-import urllib.request
+import sys
 
 # ตัวแปรเก็บสถานะฟอนต์
-FONT_READY = False
-FONT_NAME = 'Sarabun'
-FONT_BOLD = 'SarabunBold'
+FONT_NAME = 'ThaiFont'
+FONT_BOLD = 'ThaiFontBold'
 
-def download_thai_font():
-    """ดาวน์โหลดฟอนต์ไทย Sarabun จาก Google Fonts"""
-    fonts = {
-        'Sarabun-Regular.ttf': 'https://github.com/cadsondemak/Sarabun/raw/master/fonts/ttf/Sarabun-Regular.ttf',
-        'Sarabun-Bold.ttf': 'https://github.com/cadsondemak/Sarabun/raw/master/fonts/ttf/Sarabun-Bold.ttf'
-    }
+def find_thai_font():
+    """หาฟอนต์ไทยที่มีอยู่ในระบบ"""
     
-    for filename, url in fonts.items():
-        if not os.path.exists(filename):
-            try:
-                print(f"กำลังดาวน์โหลด {filename}...")
-                urllib.request.urlretrieve(url, filename)
-                print(f"✓ ดาวน์โหลด {filename} สำเร็จ")
-            except Exception as e:
-                print(f"❌ ไม่สามารถดาวน์โหลด {filename}: {e}")
-                return False
-    return True
+    # รายการฟอนต์ไทยที่มักมีใน Windows
+    thai_fonts = [
+        ('angsa.ttf', 'angsab.ttf', 'Angsana New'),      # Angsana New
+        ('cordia.ttf', 'cordiab.ttf', 'Cordia New'),      # Cordia New
+        ('browalia.ttf', 'browalib.ttf', 'Browallia New'), # Browallia New
+    ]
+    
+    # path ของ Windows Fonts
+    if sys.platform == 'win32':
+        font_dir = r'C:\Windows\Fonts'
+        
+        for regular_file, bold_file, font_display_name in thai_fonts:
+            regular_path = os.path.join(font_dir, regular_file)
+            bold_path = os.path.join(font_dir, bold_file)
+            
+            if os.path.exists(regular_path):
+                print(f"✓ พบฟอนต์: {font_display_name}")
+                return regular_path, bold_path, font_display_name
+    
+    # สำหรับ Mac/Linux - ใช้ฟอนต์สำรอง
+    return None, None, None
 
 def setup_thai_font():
-    """ตั้งค่าฟอนต์ภาษาไทย"""
-    global FONT_READY
+    """ตั้งค่าฟอนต์ไทยจากระบบ"""
     
-    # ตรวจสอบว่ามีฟอนต์อยู่แล้วหรือไม่
-    if os.path.exists('Sarabun-Regular.ttf') and os.path.exists('Sarabun-Bold.ttf'):
-        try:
-            pdfmetrics.registerFont(TTFont('Sarabun', 'Sarabun-Regular.ttf'))
-            pdfmetrics.registerFont(TTFont('SarabunBold', 'Sarabun-Bold.ttf'))
-            FONT_READY = True
-            print("✓ ใช้ฟอนต์ Sarabun สำเร็จ")
-            return True
-        except Exception as e:
-            print(f"❌ ไม่สามารถโหลดฟอนต์: {e}")
+    # ตรวจสอบว่าฟอนต์ถูกลงทะเบียนแล้วหรือยัง
+    try:
+        pdfmetrics.getFont('ThaiFont')
+        print("✓ ฟอนต์ไทยพร้อมใช้งานแล้ว")
+        return True
+    except:
+        pass
     
-    # ถ้าไม่มี ให้ดาวน์โหลด
-    print("ไม่พบฟอนต์ภาษาไทย กำลังดาวน์โหลด...")
-    if download_thai_font():
+    # หาฟอนต์ในระบบ
+    regular_path, bold_path, font_name = find_thai_font()
+    
+    if regular_path and os.path.exists(regular_path):
         try:
-            pdfmetrics.registerFont(TTFont('Sarabun', 'Sarabun-Regular.ttf'))
-            pdfmetrics.registerFont(TTFont('SarabunBold', 'Sarabun-Bold.ttf'))
-            FONT_READY = True
-            print("✓ ตั้งค่าฟอนต์สำเร็จ")
+            # ลงทะเบียนฟอนต์ปกติ
+            pdfmetrics.registerFont(TTFont('ThaiFont', regular_path))
+            
+            # ลงทะเบียนฟอนต์หนา (ถ้ามี)
+            if bold_path and os.path.exists(bold_path):
+                pdfmetrics.registerFont(TTFont('ThaiFontBold', bold_path))
+            else:
+                # ถ้าไม่มี Bold ให้ใช้ปกติแทน
+                pdfmetrics.registerFont(TTFont('ThaiFontBold', regular_path))
+            
+            print(f"✓ ลงทะเบียนฟอนต์ {font_name} สำเร็จ")
             return True
+            
         except Exception as e:
-            print(f"❌ ไม่สามารถตั้งค่าฟอนต์: {e}")
+            print(f"❌ ไม่สามารถลงทะเบียนฟอนต์: {e}")
+    else:
+        print("⚠ ไม่พบฟอนต์ไทยในระบบ")
     
     return False
 
@@ -77,9 +90,18 @@ def generate_receipt_pdf(order_id, db):
         str: path ของไฟล์ PDF ที่สร้าง หรือ None ถ้าสร้างไม่สำเร็จ
     """
     
-    # ตั้งค่าฟอนต์
-    if not FONT_READY:
-        setup_thai_font()
+    # ตั้งค่าฟอนต์ก่อนทุกครั้ง
+    font_success = setup_thai_font()
+    
+    # กำหนดฟอนต์ที่จะใช้
+    if font_success:
+        font_regular = 'ThaiFont'
+        font_bold = 'ThaiFontBold'
+    else:
+        # ถ้าไม่สำเร็จ ใช้ฟอนต์สำรอง
+        font_regular = 'Helvetica'
+        font_bold = 'Helvetica-Bold'
+        print("⚠ ใช้ฟอนต์สำรอง Helvetica (อาจแสดงภาษาไทยไม่ถูกต้อง)")
     
     # ดึงข้อมูล Order
     order_details = db.get_order_details(order_id)
@@ -110,16 +132,16 @@ def generate_receipt_pdf(order_id, db):
     line_height = 4 * mm
     
     # ===== ส่วนหัว =====
-    c.setFont(FONT_BOLD, 20)
+    c.setFont(font_bold, 20)
     c.drawCentredString(slip_width / 2, y_position, "DOLLIE SHOP")
     y_position -= line_height * 1.2
     
-    c.setFont(FONT_NAME, 10)
+    c.setFont(font_regular, 10)
     c.drawCentredString(slip_width / 2, y_position, "ร้านขายตุ๊กตาน่ารัก")
     y_position -= line_height
     
     # ข้อมูลร้าน
-    c.setFont(FONT_NAME, 8)
+    c.setFont(font_regular, 8)
     store_info = [
         "123 ถนนสุขุมวิท แขวงคลองเตย",
         "เขตคลองเตย กรุงเทพฯ 10110",
@@ -139,12 +161,12 @@ def generate_receipt_pdf(order_id, db):
     y_position -= line_height
     
     # ===== ข้อมูลใบเสร็จ =====
-    c.setFont(FONT_BOLD, 10)
+    c.setFont(font_bold, 10)
     c.drawCentredString(slip_width / 2, y_position, "ใบเสร็จรับเงิน / RECEIPT")
     y_position -= line_height * 1.2
     
     # เลขที่ใบเสร็จ
-    c.setFont(FONT_NAME, 9)
+    c.setFont(font_regular, 9)
     c.drawString(left_margin, y_position, f"เลขที่: #{order_details['order_id']}")
     y_position -= line_height
     
@@ -172,7 +194,7 @@ def generate_receipt_pdf(order_id, db):
     y_position -= line_height
     
     # ===== รายการสินค้า =====
-    c.setFont(FONT_BOLD, 9)
+    c.setFont(font_bold, 9)
     c.drawString(left_margin, y_position, "รายการสินค้า")
     y_position -= line_height * 1.2
     
@@ -182,7 +204,7 @@ def generate_receipt_pdf(order_id, db):
     
     if items_string:
         item_strings = items_string.split(', ')
-        c.setFont(FONT_NAME, 8)
+        c.setFont(font_regular, 8)
         
         for item_str in item_strings:
             parts = item_str.rsplit(' x', 1)
@@ -225,7 +247,7 @@ def generate_receipt_pdf(order_id, db):
     y_position -= line_height
     
     # ===== สรุปยอดเงิน =====
-    c.setFont(FONT_NAME, 9)
+    c.setFont(font_regular, 9)
     
     # ยอดรวมสินค้า (ก่อน VAT)
     c.drawString(left_margin, y_position, "ยอดรวม")
@@ -244,7 +266,7 @@ def generate_receipt_pdf(order_id, db):
     y_position -= line_height
     
     # ยอดรวมทั้งสิ้น
-    c.setFont(FONT_BOLD, 12)
+    c.setFont(font_bold, 12)
     c.drawString(left_margin, y_position, "ยอดรวมทั้งสิ้น")
     c.drawRightString(slip_width - left_margin, y_position, f"{total_with_vat:.2f} บาท")
     y_position -= line_height * 1.5
@@ -257,7 +279,7 @@ def generate_receipt_pdf(order_id, db):
     y_position -= line_height
     
     # ===== ข้อมูลเพิ่มเติม =====
-    c.setFont(FONT_NAME, 8)
+    c.setFont(font_regular, 8)
     
     # สถานะ
     status_map = {
@@ -274,14 +296,14 @@ def generate_receipt_pdf(order_id, db):
     # ที่อยู่จัดส่ง
     shipping_address = order_details.get('shipping_address')
     if shipping_address:
-        c.setFont(FONT_BOLD, 8)
+        c.setFont(font_bold, 8)
         c.drawString(left_margin, y_position, "ที่อยู่จัดส่ง:")
         y_position -= line_height * 0.9
         
-        c.setFont(FONT_NAME, 7)
+        c.setFont(font_regular, 7)
         # แบ่งที่อยู่ยาวๆ เป็นหลายบรรทัด
         max_width = slip_width - (2 * left_margin)
-        address_lines = wrap_text(shipping_address, c, max_width, 7)
+        address_lines = wrap_text(shipping_address, c, max_width, 7, font_regular)
         for addr_line in address_lines:
             c.drawString(left_margin, y_position, addr_line)
             y_position -= line_height * 0.8
@@ -289,7 +311,7 @@ def generate_receipt_pdf(order_id, db):
     y_position -= line_height
     
     # ===== ส่วนท้าย =====
-    c.setFont(FONT_NAME, 8)
+    c.setFont(font_regular, 8)
     c.drawCentredString(slip_width / 2, y_position, "*** ขอบคุณที่ใช้บริการ ***")
     y_position -= line_height
     c.drawCentredString(slip_width / 2, y_position, "www.dollieshop.com")
@@ -309,7 +331,7 @@ def generate_receipt_pdf(order_id, db):
     return pdf_path
 
 
-def wrap_text(text, canvas_obj, max_width, font_size):
+def wrap_text(text, canvas_obj, max_width, font_size, font_name):
     """แบ่งข้อความยาวเป็นหลายบรรทัด"""
     words = text.split()
     lines = []
@@ -317,7 +339,7 @@ def wrap_text(text, canvas_obj, max_width, font_size):
     
     for word in words:
         test_line = current_line + " " + word if current_line else word
-        text_width = canvas_obj.stringWidth(test_line, FONT_NAME, font_size)
+        text_width = canvas_obj.stringWidth(test_line, font_name, font_size)
         
         if text_width <= max_width:
             current_line = test_line
