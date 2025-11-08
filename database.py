@@ -609,6 +609,330 @@ class Database:
             return []
         finally:
             self.close()
+
+    # ========== ฟังก์ชันสำหรับดูยอดขายตามวันที่เลือก ==========
+    
+    def get_sales_by_date(self, date_str):
+        """
+        ดึงยอดขายตามวันที่ที่ระบุ (YYYY-MM-DD)
+        Output: [{'sale_date': '2024-01-15', 'order_count': 5, 'total_revenue': 15000.0}]
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            query = """
+                SELECT 
+                    DATE(created_at) as sale_date,
+                    COUNT(*) as order_count,
+                    COALESCE(SUM(total_amount), 0) as total_revenue
+                FROM orders
+                WHERE DATE(created_at) = DATE(?) AND status != 'cancelled'
+                GROUP BY DATE(created_at)
+            """
+            cursor.execute(query, (date_str,))
+            result = cursor.fetchall()
+            return [dict(row) for row in result]
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาดในการดึงยอดขายรายวัน: {e}")
+            return []
+        finally:
+            self.close()
+    
+    def get_sales_by_month(self, month_str):
+        """
+        ดึงยอดขายตามเดือน (YYYY-MM)
+        Output: [{'sale_month': '2024-01', 'order_count': 150, 'total_revenue': 450000.0}]
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            query = """
+                SELECT 
+                    STRFTIME('%Y-%m', created_at) as sale_month,
+                    COUNT(*) as order_count,
+                    COALESCE(SUM(total_amount), 0) as total_revenue
+                FROM orders
+                WHERE STRFTIME('%Y-%m', created_at) = ? AND status != 'cancelled'
+                GROUP BY STRFTIME('%Y-%m', created_at)
+            """
+            cursor.execute(query, (month_str,))
+            result = cursor.fetchall()
+            return [dict(row) for row in result]
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาดในการดึงยอดขายรายเดือน: {e}")
+            return []
+        finally:
+            self.close()
+    
+    def get_sales_by_year(self, year_str):
+        """
+        ดึงยอดขายตามปี (YYYY)
+        Output: [{'sale_year': '2024', 'order_count': 1800, 'total_revenue': 5400000.0}]
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            query = """
+                SELECT 
+                    STRFTIME('%Y', created_at) as sale_year,
+                    COUNT(*) as order_count,
+                    COALESCE(SUM(total_amount), 0) as total_revenue
+                FROM orders
+                WHERE STRFTIME('%Y', created_at) = ? AND status != 'cancelled'
+                GROUP BY STRFTIME('%Y', created_at)
+            """
+            cursor.execute(query, (year_str,))
+            result = cursor.fetchall()
+            return [dict(row) for row in result]
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาดในการดึงยอดขายรายปี: {e}")
+            return []
+        finally:
+            self.close()
+    
+    def get_sales_by_date_range(self, start_date, end_date):
+        """
+        ดึงยอดขายตามช่วงวันที่ (YYYY-MM-DD)
+        Output: [{'sale_date': '2024-01-15', 'order_count': 5, 'total_revenue': 15000.0}, ...]
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            query = """
+                SELECT 
+                    DATE(created_at) as sale_date,
+                    COUNT(*) as order_count,
+                    COALESCE(SUM(total_amount), 0) as total_revenue
+                FROM orders
+                WHERE DATE(created_at) BETWEEN DATE(?) AND DATE(?)
+                  AND status != 'cancelled'
+                GROUP BY DATE(created_at)
+                ORDER BY sale_date DESC
+            """
+            cursor.execute(query, (start_date, end_date))
+            result = cursor.fetchall()
+            return [dict(row) for row in result]
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาดในการดึงยอดขายตามช่วงเวลา: {e}")
+            return []
+        finally:
+            self.close()
+    
+    def get_orders_by_date(self, date_str):
+        """
+        ดึงรายการคำสั่งซื้อในวันที่กำหนด พร้อมรายละเอียดเพิ่มเติม
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            query = '''
+                SELECT o.*, 
+                       COALESCE(u.full_name, o.buyer_name) as customer_name,
+                       GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
+                FROM orders o 
+                LEFT JOIN users u ON o.user_id = u.user_id
+                LEFT JOIN order_items oi ON o.order_id = oi.order_id 
+                LEFT JOIN products p ON oi.product_id = p.product_id
+                WHERE DATE(o.created_at) = DATE(?)
+                GROUP BY o.order_id 
+                ORDER BY o.created_at DESC
+            '''
+            cursor.execute(query, (date_str,))
+            orders = cursor.fetchall()
+            return [dict(row) for row in orders]
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาดในการดึงคำสั่งซื้อรายวัน: {e}")
+            return []
+        finally:
+            self.close()
+    
+    def get_orders_by_month(self, month_str):
+        """
+        ดึงรายการคำสั่งซื้อในเดือนที่กำหนด (YYYY-MM)
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            query = '''
+                SELECT o.*, 
+                       COALESCE(u.full_name, o.buyer_name) as customer_name,
+                       GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
+                FROM orders o 
+                LEFT JOIN users u ON o.user_id = u.user_id
+                LEFT JOIN order_items oi ON o.order_id = oi.order_id 
+                LEFT JOIN products p ON oi.product_id = p.product_id
+                WHERE STRFTIME('%Y-%m', o.created_at) = ?
+                GROUP BY o.order_id 
+                ORDER BY o.created_at DESC
+            '''
+            cursor.execute(query, (month_str,))
+            orders = cursor.fetchall()
+            return [dict(row) for row in orders]
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาดในการดึงคำสั่งซื้อรายเดือน: {e}")
+            return []
+        finally:
+            self.close()
+    
+    def get_orders_by_year(self, year_str):
+        """
+        ดึงรายการคำสั่งซื้อในปีที่กำหนด (YYYY)
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            query = '''
+                SELECT o.*, 
+                       COALESCE(u.full_name, o.buyer_name) as customer_name,
+                       GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
+                FROM orders o 
+                LEFT JOIN users u ON o.user_id = u.user_id
+                LEFT JOIN order_items oi ON o.order_id = oi.order_id 
+                LEFT JOIN products p ON oi.product_id = p.product_id
+                WHERE STRFTIME('%Y', o.created_at) = ?
+                GROUP BY o.order_id 
+                ORDER BY o.created_at DESC
+            '''
+            cursor.execute(query, (year_str,))
+            orders = cursor.fetchall()
+            return [dict(row) for row in orders]
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาดในการดึงคำสั่งซื้อรายปี: {e}")
+            return []
+        finally:
+            self.close()
+    
+    def get_top_products_by_period(self, period_type, period_value, limit=10):
+        """
+        ดึงสินค้าขายดีตามช่วงเวลา
+        period_type: 'day', 'month', 'year'
+        period_value: 'YYYY-MM-DD', 'YYYY-MM', 'YYYY'
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            if period_type == 'day':
+                where_clause = "DATE(o.created_at) = DATE(?)"
+            elif period_type == 'month':
+                where_clause = "STRFTIME('%Y-%m', o.created_at) = ?"
+            elif period_type == 'year':
+                where_clause = "STRFTIME('%Y', o.created_at) = ?"
+            else:
+                return []
+            
+            query = f'''
+                SELECT p.product_id, p.name, p.category, p.price, p.image_url,
+                       SUM(oi.quantity) as total_sold, 
+                       SUM(oi.quantity * oi.price) as total_revenue
+                FROM products p 
+                JOIN order_items oi ON p.product_id = oi.product_id
+                JOIN orders o ON oi.order_id = o.order_id 
+                WHERE o.status != 'cancelled' AND {where_clause}
+                GROUP BY p.product_id 
+                ORDER BY total_sold DESC 
+                LIMIT ?
+            '''
+            cursor.execute(query, (period_value, limit))
+            products = cursor.fetchall()
+            return [dict(row) for row in products]
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาดในการดึงสินค้าขายดี: {e}")
+            return []
+        finally:
+            self.close()
+    
+    def get_sales_comparison(self):
+        """
+        เปรียบเทียบยอดขายระหว่างวันนี้, เมือนนี้, ปีนี้ กับช่วงเวลาก่อนหน้า
+        Output: {'today': {...}, 'yesterday': {...}, 'this_month': {...}, ...}
+        """
+        cursor = self.connect()
+        if not cursor:
+            return {}
+        
+        try:
+            result = {}
+            
+            # วันนี้
+            cursor.execute("""
+                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
+                FROM orders
+                WHERE DATE(created_at) = DATE('now', 'localtime') AND status != 'cancelled'
+            """)
+            row = cursor.fetchone()
+            result['today'] = {'orders': row[0], 'revenue': row[1]}
+            
+            # เมื่อวาน
+            cursor.execute("""
+                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
+                FROM orders
+                WHERE DATE(created_at) = DATE('now', 'localtime', '-1 day') AND status != 'cancelled'
+            """)
+            row = cursor.fetchone()
+            result['yesterday'] = {'orders': row[0], 'revenue': row[1]}
+            
+            # เดือนนี้
+            cursor.execute("""
+                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
+                FROM orders
+                WHERE STRFTIME('%Y-%m', created_at) = STRFTIME('%Y-%m', 'now', 'localtime') 
+                  AND status != 'cancelled'
+            """)
+            row = cursor.fetchone()
+            result['this_month'] = {'orders': row[0], 'revenue': row[1]}
+            
+            # เดือนที่แล้ว
+            cursor.execute("""
+                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
+                FROM orders
+                WHERE STRFTIME('%Y-%m', created_at) = STRFTIME('%Y-%m', 'now', 'localtime', '-1 month') 
+                  AND status != 'cancelled'
+            """)
+            row = cursor.fetchone()
+            result['last_month'] = {'orders': row[0], 'revenue': row[1]}
+            
+            # ปีนี้
+            cursor.execute("""
+                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
+                FROM orders
+                WHERE STRFTIME('%Y', created_at) = STRFTIME('%Y', 'now', 'localtime') 
+                  AND status != 'cancelled'
+            """)
+            row = cursor.fetchone()
+            result['this_year'] = {'orders': row[0], 'revenue': row[1]}
+            
+            # ปีที่แล้ว
+            cursor.execute("""
+                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
+                FROM orders
+                WHERE STRFTIME('%Y', created_at) = STRFTIME('%Y', 'now', 'localtime', '-1 year') 
+                  AND status != 'cancelled'
+            """)
+            row = cursor.fetchone()
+            result['last_year'] = {'orders': row[0], 'revenue': row[1]}
+            
+            return result
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาดในการเปรียบเทียบยอดขาย: {e}")
+            return {}
+        finally:
+            self.close()
     # ^^^^ สิ้นสุดฟังก์ชันใหม่ ^^^^
 
     def get_dashboard_stats(self):
