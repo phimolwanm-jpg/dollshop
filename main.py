@@ -22,6 +22,7 @@ from ui_thankyou import ThankYouWindow
 from ui_receipt import ReceiptWindow
 from ui_about import AboutWindow
 from ui_sales_history import SalesHistoryWindow
+from ui_admin_users import AdminUsersWindow  # <--- (เพิ่มบรรทัดนี้)
 
 
 class MainApplication(ctk.CTk):
@@ -62,7 +63,7 @@ class MainApplication(ctk.CTk):
             LoginWindow, HomeWindow, AdminWindow, AdminDashboardWindow, CartWindow,
             CheckoutWindow, OrderHistoryWindow, ProductListWindow, AdminOrdersWindow,
             ProfileWindow, ThankYouWindow, ReceiptWindow, AboutWindow, SalesHistoryWindow,
-            # Add new windows only if their class exists
+            AdminUsersWindow  # <--- (เพิ่มบรรทัดนี้)
         ]
         # Filter out None values in case some files were missing
         valid_window_classes = [cls for cls in all_window_classes if cls is not None]
