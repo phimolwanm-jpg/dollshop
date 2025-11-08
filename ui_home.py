@@ -62,6 +62,18 @@ class HomeWindow(ctk.CTkFrame):
         right_header_frame = ctk.CTkFrame(header, fg_color="transparent")
         right_header_frame.pack(side="right", padx=20, pady=10)
 
+        # --- (vVv นี่คือปุ่ม "เกี่ยวกับเรา" ที่ย้ายมาใหม่ vVv) ---
+        # สร้างปุ่ม "เกี่ยวกับเรา" ใน Header
+        about_btn = ctk.CTkButton(
+            right_header_frame,
+            text="ℹ️ เกี่ยวกับเรา",
+            fg_color="transparent", hover_color="#FFE4E1", text_color="#6D4C41",
+            font=("IBM Plex Sans Thai", 14),
+            command=lambda: self.main_app.navigate_to('AboutWindow')
+        )
+        about_btn.pack(side="left", padx=5)
+        # --- (vVv จบส่วนที่เพิ่ม vVv) ---
+
         # --- (NEW) 2.3 สร้าง Frame ค้นหา (ตรงกลาง) ---
         # (วางก่อน right_header_frame จะถูก pack ไปชิดขวา ทำให้ search อยู่ตรงกลาง)
         search_frame = ctk.CTkFrame(header, fg_color="transparent")
@@ -292,18 +304,8 @@ class HomeWindow(ctk.CTkFrame):
 
             product_card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
 
-        # --- 7. สร้างส่วน Footer ---
-        footer_frame = ctk.CTkFrame(main_content_frame, fg_color="transparent")
-        footer_frame.grid(row=3, column=0, sticky="ew", pady=20)
-
-        about_button = ctk.CTkButton(
-            footer_frame, text="ℹ️ เกี่ยวกับเรา / ผู้พัฒนา",
-            fg_color="transparent", text_color="#FFB6C1", hover_color="#FFE4E1",
-            border_width=1, border_color="#FFB6C1", corner_radius=15, height=40,
-            font=("IBM Plex Sans Thai", 14),
-            command=lambda: self.main_app.navigate_to('AboutWindow')
-        )
-        about_button.pack(pady=10)
+        # --- (vVv ส่วนที่ 7 (Footer) ถูกลบออกแล้ว vVv) ---
+        # (Footer เดิมอยู่ตรงนี้)
 
     # --- (NEW) ฟังก์ชันสำหรับจัดการการค้นหา ---
     def on_search(self, event=None): # event=None เพื่อรองรับการกด Enter
