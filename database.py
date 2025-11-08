@@ -480,8 +480,15 @@ class Database:
         
         try:
             cursor.execute('''
-                SELECT o.*, u.username, u.full_name, 
-                       GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
+                SELECT 
+                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
+                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url, 
+                    
+                    -- นี่คือส่วนที่แก้ไข: แปลงเวลา UTC เป็น GMT+7 (เวลาไทย) --
+                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at, 
+                    
+                    u.username, u.full_name, 
+                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
