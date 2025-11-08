@@ -1,7 +1,7 @@
 """
 PDF Receipt Generator - สไตล์สลิปเซเว่น-อีเลฟเว่น
 สร้างใบเสร็จแบบสลิปความร้อน พร้อม VAT 7%
-ใช้ฟอนต์ธรรมดา Helvetica (รองรับภาษาไทยพื้นฐาน)
+ใช้ฟอนต์ภาษาไทย Sarabun จาก Google Fonts
 """
 
 from reportlab.lib.pagesizes import letter
@@ -11,14 +11,63 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from datetime import datetime
 import os
+import urllib.request
 
-# ใช้ฟอนต์ธรรมดาที่มีอยู่แล้วใน ReportLab
-FONT_NAME = 'Helvetica'
-FONT_BOLD = 'Helvetica-Bold'
+# ตัวแปรเก็บสถานะฟอนต์
+FONT_READY = False
+FONT_NAME = 'Sarabun'
+FONT_BOLD = 'SarabunBold'
+
+def download_thai_font():
+    """ดาวน์โหลดฟอนต์ไทย Sarabun จาก Google Fonts"""
+    fonts = {
+        'Sarabun-Regular.ttf': 'https://github.com/cadsondemak/Sarabun/raw/master/fonts/ttf/Sarabun-Regular.ttf',
+        'Sarabun-Bold.ttf': 'https://github.com/cadsondemak/Sarabun/raw/master/fonts/ttf/Sarabun-Bold.ttf'
+    }
+    
+    for filename, url in fonts.items():
+        if not os.path.exists(filename):
+            try:
+                print(f"กำลังดาวน์โหลด {filename}...")
+                urllib.request.urlretrieve(url, filename)
+                print(f"✓ ดาวน์โหลด {filename} สำเร็จ")
+            except Exception as e:
+                print(f"❌ ไม่สามารถดาวน์โหลด {filename}: {e}")
+                return False
+    return True
+
+def setup_thai_font():
+    """ตั้งค่าฟอนต์ภาษาไทย"""
+    global FONT_READY
+    
+    # ตรวจสอบว่ามีฟอนต์อยู่แล้วหรือไม่
+    if os.path.exists('Sarabun-Regular.ttf') and os.path.exists('Sarabun-Bold.ttf'):
+        try:
+            pdfmetrics.registerFont(TTFont('Sarabun', 'Sarabun-Regular.ttf'))
+            pdfmetrics.registerFont(TTFont('SarabunBold', 'Sarabun-Bold.ttf'))
+            FONT_READY = True
+            print("✓ ใช้ฟอนต์ Sarabun สำเร็จ")
+            return True
+        except Exception as e:
+            print(f"❌ ไม่สามารถโหลดฟอนต์: {e}")
+    
+    # ถ้าไม่มี ให้ดาวน์โหลด
+    print("ไม่พบฟอนต์ภาษาไทย กำลังดาวน์โหลด...")
+    if download_thai_font():
+        try:
+            pdfmetrics.registerFont(TTFont('Sarabun', 'Sarabun-Regular.ttf'))
+            pdfmetrics.registerFont(TTFont('SarabunBold', 'Sarabun-Bold.ttf'))
+            FONT_READY = True
+            print("✓ ตั้งค่าฟอนต์สำเร็จ")
+            return True
+        except Exception as e:
+            print(f"❌ ไม่สามารถตั้งค่าฟอนต์: {e}")
+    
+    return False
 
 def generate_receipt_pdf(order_id, db):
     """
-    สร้างใบเสร็จ PDF แบบสลิปเซเว่น
+    สร้างใบเสร็จ PDF แบบสลิปเซเว่น (ภาษาไทย)
     
     Args:
         order_id: รหัสคำสั่งซื้อ
@@ -27,6 +76,10 @@ def generate_receipt_pdf(order_id, db):
     Returns:
         str: path ของไฟล์ PDF ที่สร้าง หรือ None ถ้าสร้างไม่สำเร็จ
     """
+    
+    # ตั้งค่าฟอนต์
+    if not FONT_READY:
+        setup_thai_font()
     
     # ดึงข้อมูล Order
     order_details = db.get_order_details(order_id)
@@ -57,22 +110,21 @@ def generate_receipt_pdf(order_id, db):
     line_height = 4 * mm
     
     # ===== ส่วนหัว =====
-    # โลโก้ร้าน
     c.setFont(FONT_BOLD, 20)
     c.drawCentredString(slip_width / 2, y_position, "DOLLIE SHOP")
     y_position -= line_height * 1.2
     
     c.setFont(FONT_NAME, 10)
-    c.drawCentredString(slip_width / 2, y_position, "Ran Khai Tukta Na-Rak")
+    c.drawCentredString(slip_width / 2, y_position, "ร้านขายตุ๊กตาน่ารัก")
     y_position -= line_height
     
     # ข้อมูลร้าน
     c.setFont(FONT_NAME, 8)
     store_info = [
-        "123 Thanon Sukhumvit, Khlong Toei",
-        "Bangkok 10110",
-        "Tel: 02-xxx-xxxx",
-        "TAX ID: x-xxxx-xxxxx-xx-x"
+        "123 ถนนสุขุมวิท แขวงคลองเตย",
+        "เขตคลองเตย กรุงเทพฯ 10110",
+        "โทร: 02-xxx-xxxx",
+        "เลขประจำตัวผู้เสียภาษี: x-xxxx-xxxxx-xx-x"
     ]
     
     for info in store_info:
@@ -81,37 +133,36 @@ def generate_receipt_pdf(order_id, db):
     
     # เส้นคั่น
     y_position -= line_height * 0.5
-    c.setDash(1, 2)  # เส้นประ
+    c.setDash(1, 2)
     c.line(left_margin, y_position, slip_width - left_margin, y_position)
-    c.setDash()  # คืนค่าเป็นเส้นทึบ
+    c.setDash()
     y_position -= line_height
     
     # ===== ข้อมูลใบเสร็จ =====
     c.setFont(FONT_BOLD, 10)
-    c.drawCentredString(slip_width / 2, y_position, "RECEIPT / Bai-Set-Rap-Ngern")
+    c.drawCentredString(slip_width / 2, y_position, "ใบเสร็จรับเงิน / RECEIPT")
     y_position -= line_height * 1.2
     
     # เลขที่ใบเสร็จ
     c.setFont(FONT_NAME, 9)
-    receipt_no = f"No: #{order_details['order_id']}"
-    c.drawString(left_margin, y_position, receipt_no)
+    c.drawString(left_margin, y_position, f"เลขที่: #{order_details['order_id']}")
     y_position -= line_height
     
     # วันที่-เวลา
     order_date = order_details.get('created_at', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     if len(order_date) > 19:
         order_date = order_date[:19]
-    c.drawString(left_margin, y_position, f"Date: {order_date}")
+    c.drawString(left_margin, y_position, f"วันที่: {order_date}")
     y_position -= line_height
     
     # ลูกค้า
-    customer_name = order_details.get('full_name', 'General Customer')
-    c.drawString(left_margin, y_position, f"Customer: {customer_name}")
+    customer_name = order_details.get('full_name', 'ลูกค้าทั่วไป')
+    c.drawString(left_margin, y_position, f"ลูกค้า: {customer_name}")
     y_position -= line_height
     
     # การชำระเงิน
     payment_method = order_details.get('payment_method', '-')
-    c.drawString(left_margin, y_position, f"Payment: {payment_method}")
+    c.drawString(left_margin, y_position, f"ชำระโดย: {payment_method}")
     y_position -= line_height * 1.5
     
     # เส้นคั่น
@@ -122,7 +173,7 @@ def generate_receipt_pdf(order_id, db):
     
     # ===== รายการสินค้า =====
     c.setFont(FONT_BOLD, 9)
-    c.drawString(left_margin, y_position, "ITEMS / Rai-Gan-Sinkha")
+    c.drawString(left_margin, y_position, "รายการสินค้า")
     y_position -= line_height * 1.2
     
     # Parse รายการสินค้า
@@ -156,14 +207,12 @@ def generate_receipt_pdf(order_id, db):
         for item in items_list:
             item_total = price_per_item * item['qty']
             
-            # แสดงชื่อสินค้า (ใช้ชื่อภาษาอังกฤษถ้ามี ไม่งั้นใช้ชื่อตามที่มี)
-            item_display_name = item['name']
-            # ถ้าชื่อมีอักขระไทย อาจจะแสดงไม่ถูก แต่ก็ยังพอใช้ได้
-            c.drawString(left_margin, y_position, f"{item_display_name}")
+            # ชื่อสินค้า
+            c.drawString(left_margin, y_position, f"{item['name']}")
             y_position -= line_height * 0.9
             
-            # แสดงจำนวนและราคา
-            qty_price_text = f"  {item['qty']} x {price_per_item:.2f} THB"
+            # จำนวนและราคา
+            qty_price_text = f"  {item['qty']} x {price_per_item:.2f} บาท"
             c.drawString(left_margin + 3*mm, y_position, qty_price_text)
             c.drawRightString(slip_width - left_margin, y_position, f"{item_total:.2f}")
             y_position -= line_height * 1.2
@@ -179,13 +228,13 @@ def generate_receipt_pdf(order_id, db):
     c.setFont(FONT_NAME, 9)
     
     # ยอดรวมสินค้า (ก่อน VAT)
-    c.drawString(left_margin, y_position, "Subtotal")
-    c.drawRightString(slip_width - left_margin, y_position, f"{subtotal:.2f} THB")
+    c.drawString(left_margin, y_position, "ยอดรวม")
+    c.drawRightString(slip_width - left_margin, y_position, f"{subtotal:.2f} บาท")
     y_position -= line_height
     
     # VAT 7%
-    c.drawString(left_margin, y_position, "VAT 7%")
-    c.drawRightString(slip_width - left_margin, y_position, f"{vat_amount:.2f} THB")
+    c.drawString(left_margin, y_position, "ภาษีมูลค่าเพิ่ม 7%")
+    c.drawRightString(slip_width - left_margin, y_position, f"{vat_amount:.2f} บาท")
     y_position -= line_height * 1.2
     
     # เส้นคั่นหนา
@@ -196,8 +245,8 @@ def generate_receipt_pdf(order_id, db):
     
     # ยอดรวมทั้งสิ้น
     c.setFont(FONT_BOLD, 12)
-    c.drawString(left_margin, y_position, "TOTAL")
-    c.drawRightString(slip_width - left_margin, y_position, f"{total_with_vat:.2f} THB")
+    c.drawString(left_margin, y_position, "ยอดรวมทั้งสิ้น")
+    c.drawRightString(slip_width - left_margin, y_position, f"{total_with_vat:.2f} บาท")
     y_position -= line_height * 1.5
     
     # เส้นคั่น
@@ -212,21 +261,21 @@ def generate_receipt_pdf(order_id, db):
     
     # สถานะ
     status_map = {
-        'pending': 'Pending',
-        'confirmed': 'Confirmed',
-        'shipped': 'Shipping',
-        'delivered': 'Delivered',
-        'cancelled': 'Cancelled'
+        'pending': 'รอดำเนินการ',
+        'confirmed': 'ยืนยันแล้ว',
+        'shipped': 'กำลังจัดส่ง',
+        'delivered': 'จัดส่งสำเร็จ',
+        'cancelled': 'ยกเลิก'
     }
-    status = status_map.get(order_details.get('status', 'pending'), 'Pending')
-    c.drawString(left_margin, y_position, f"Status: {status}")
+    status = status_map.get(order_details.get('status', 'pending'), 'รอดำเนินการ')
+    c.drawString(left_margin, y_position, f"สถานะ: {status}")
     y_position -= line_height * 1.2
     
     # ที่อยู่จัดส่ง
     shipping_address = order_details.get('shipping_address')
     if shipping_address:
         c.setFont(FONT_BOLD, 8)
-        c.drawString(left_margin, y_position, "Shipping Address:")
+        c.drawString(left_margin, y_position, "ที่อยู่จัดส่ง:")
         y_position -= line_height * 0.9
         
         c.setFont(FONT_NAME, 7)
@@ -241,10 +290,8 @@ def generate_receipt_pdf(order_id, db):
     
     # ===== ส่วนท้าย =====
     c.setFont(FONT_NAME, 8)
-    c.drawCentredString(slip_width / 2, y_position, "*** THANK YOU ***")
+    c.drawCentredString(slip_width / 2, y_position, "*** ขอบคุณที่ใช้บริการ ***")
     y_position -= line_height
-    c.drawCentredString(slip_width / 2, y_position, "Khob-Khun-Thi-Chai-Borigan")
-    y_position -= line_height * 0.8
     c.drawCentredString(slip_width / 2, y_position, "www.dollieshop.com")
     y_position -= line_height * 1.5
     
@@ -258,7 +305,7 @@ def generate_receipt_pdf(order_id, db):
     # บันทึก PDF
     c.save()
     
-    print(f"สร้าง PDF สำเร็จ: {pdf_path}")
+    print(f"✓ สร้าง PDF สำเร็จ: {pdf_path}")
     return pdf_path
 
 
