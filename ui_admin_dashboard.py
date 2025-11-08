@@ -125,7 +125,7 @@ class AdminDashboardWindow(ctk.CTkFrame):
         tab_frame = ctk.CTkFrame(section, fg_color="transparent")
         tab_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 15))
         
-        self.period_var = ctk.StringVar(value="day")
+        self.period_var = ctk.StringVar(value="รายวัน")
         
         ctk.CTkSegmentedButton(
             tab_frame,
@@ -292,8 +292,7 @@ class AdminDashboardWindow(ctk.CTkFrame):
     
     def on_period_change(self, value):
         """เมื่อเปลี่ยนประเภทช่วงเวลา"""
-        period_map = {"รายวัน": "day", "รายเดือน": "month", "รายปี": "year"}
-        self.period_var.set(period_map[value])
+        # value ที่ได้คือ "รายวัน", "รายเดือน", "รายปี" จาก Segmented Button
         self.create_date_selector()
         self.update_sales_display()
     
@@ -347,12 +346,16 @@ class AdminDashboardWindow(ctk.CTkFrame):
         
         period = self.period_var.get()
         
-        if period == "รายวัน" or period == "day":
+        # ตรวจสอบว่า period เป็นภาษาไทยหรือภาษาอังกฤษ
+        if period == "รายวัน":
             self.show_daily_sales()
-        elif period == "รายเดือน" or period == "month":
+        elif period == "รายเดือน":
             self.show_monthly_sales()
-        else:  # รายปี
+        elif period == "รายปี":
             self.show_yearly_sales()
+        else:
+            # กรณีที่ยังไม่ได้เลือก แสดงรายวัน
+            self.show_daily_sales()
     
     def show_daily_sales(self):
         """แสดงยอดขายรายวัน"""
