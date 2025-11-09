@@ -1,102 +1,85 @@
-# M:/doll_shop/utils.py (ปรับปรุงเล็กน้อย)
+import re
+import bcrypt
+from datetime import datetime
+from tkinter import messagebox
 
-import re # สำหรับตรวจสอบรูปแบบข้อความ (Regular Expression)
-import bcrypt # สำหรับเข้ารหัสและตรวจสอบรหัสผ่าน
-from datetime import datetime # สำหรับจัดการวันที่เวลา
-from tkinter import messagebox # สำหรับแสดงกล่องข้อความ
-# import customtkinter as ctk # ไม่ได้ใช้ ctk โดยตรงในไฟล์นี้
 
-# --- ฟังก์ชันตรวจสอบ (Validation) ---
+# === ตรวจสอบข้อมูล ===
 
 def validate_email(email):
-    """ตรวจสอบรูปแบบอีเมล (ต้องมี @ และ . หลัง @)"""
-    # ^     = เริ่มต้น string
-    # [...] + = ตัวอักษรกลุ่มแรก 1 ตัวขึ้นไป (ห้ามมี @)
-    # @     = ต้องมี @
-    # [...] + = ตัวอักษรกลุ่มสอง 1 ตัวขึ้นไป (ห้ามมี @ หรือ .)
-    # \.    = ต้องมี . (ต้องใส่ \ เพราะ . เป็นอักษรพิเศษ)
-    # [...] {2,} = ตัวอักษรกลุ่มสาม 2 ตัวขึ้นไป (ส่วนขยาย เช่น com, net)
-    # $     = จบ string
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' 
-    # re.match จะพยายามเทียบ pattern จาก *จุดเริ่มต้น* ของ email
-    return re.match(pattern, email) is not None # คืนค่า True ถ้าเจอ pattern
+    """ตรวจสอบอีเมลให้ถูกต้อง"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    is_valid = re.match(pattern, email) is not None
+    return is_valid
+
 
 def validate_phone(phone):
-    """ตรวจสอบรูปแบบเบอร์โทร (รองรับ 0xx-xxx-xxxx หรือ 0xxxxxxxxxx)"""
-    # ^0    = ขึ้นต้นด้วย 0
-    # \d{1,2} = ตามด้วยตัวเลข 1 หรือ 2 ตัว (เช่น 8, 9, 42)
-    # -?    = อาจจะมี "-" หรือไม่มีก็ได้ (ตัว ?)
-    # \d{3} = ตามด้วยตัวเลข 3 ตัว
-    # -?    = อาจจะมี "-" หรือไม่มีก็ได้
-    # \d{4} = ตามด้วยตัวเลข 4 ตัว
-    # $     = จบ string
-    pattern = r'^0\d{1,2}-?\d{3}-?\d{4}$' 
-    return re.match(pattern, phone) is not None
+    """ตรวจสอบเบอร์โทร"""
+    pattern = r'^0\d{1,2}-?\d{3}-?\d{4}$'
+    is_valid = re.match(pattern, phone) is not None
+    return is_valid
+
 
 def validate_password(password):
-    """ตรวจสอบความยาวรหัสผ่าน (ขั้นต่ำ 8 ตัว)"""
-    # แค่เช็คความยาว
-    return len(password) >= 8 
+    """ตรวจสอบรหัสผ่าน - ต้องยาวอย่างน้อย 8 ตัว"""
+    is_valid = len(password) >= 8
+    return is_valid
 
-# --- ฟังก์ชันรหัสผ่าน (Password) ---
+
+# === เข้ารหัสรหัสผ่าน ===
 
 def hash_password(password):
-    """เข้ารหัสรหัสผ่านด้วย bcrypt (ปลอดภัย)"""
-    # password.encode() แปลง string เป็น bytes ก่อน
-    # bcrypt.gensalt() สร้าง "เกลือ" (salt) แบบสุ่ม ทำให้ hash ไม่ซ้ำกัน
-    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()) 
-    return hashed # คืนค่า hashed password (เป็น bytes)
+    """เข้ารหัสรหัสผ่าน"""
+    password_bytes = password.encode()
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed
 
-def check_password(password, hashed_password_from_db):
-    """ตรวจสอบรหัสผ่านที่ user กรอก กับที่ hash เก็บไว้ใน DB"""
-    # password.encode() แปลง string เป็น bytes
-    # hashed_password_from_db คือ password (bytes) ที่อ่านมาจาก DB
-    # bcrypt.checkpw จะทำการ hash password ที่ user กรอก (โดยใช้ salt ที่ฝังใน hashed_password_from_db)
-    # แล้วเทียบว่าตรงกันหรือไม่
-    return bcrypt.checkpw(password.encode(), hashed_password_from_db) # คืนค่า True ถ้าตรง
 
-# --- ฟังก์ชันจัดรูปแบบ (Formatting) ---
+def check_password(password, hashed_from_db):
+    """ตรวจสอบรหัสผ่านกับที่เข้ารหัสไว้"""
+    password_bytes = password.encode()
+    is_match = bcrypt.checkpw(password_bytes, hashed_from_db)
+    return is_match
+
+
+# === จัดรูปแบบข้อมูล ===
 
 def format_currency(amount):
-    """จัดรูปแบบตัวเลขเป็นสกุลเงินบาท (เช่น ฿1,200.50)"""
-    # f-string formatting:
-    # :   = เริ่มต้น format specifier
-    # ,   = ใส่ comma คั่นหลักพัน
-    # .2f = แสดงเป็นเลขทศนิยม 2 ตำแหน่ง
-    return f"฿{amount:,.2f}" 
+    """แปลงตัวเลขเป็นรูปแบบเงินบาท"""
+    formatted = f"฿{amount:,.2f}"
+    return formatted
 
-def format_datetime(datetime_string_from_db):
-    """จัดรูปแบบ string วันที่เวลาจาก DB (YYYY-MM-DD HH:MM:SS) เป็น DD/MM/YYYY HH:MM"""
-    # ใช้ try...except เผื่อ format ที่ได้มาไม่ตรง
+
+def format_datetime(datetime_str):
+    """แปลงวันที่เวลาให้อ่านง่าย"""
     try:
-        # datetime.strptime แปลง string เป็น datetime object
-        # ต้องระบุ format ของ string ต้นทาง ("%Y-%m-%d %H:%M:%S")
-        datetime_object = datetime.strptime(datetime_string_from_db, "%Y-%m-%d %H:%M:%S") 
-        # datetime_object.strftime แปลง datetime object กลับเป็น string ใน format ที่ต้องการ
-        return datetime_object.strftime("%d/%m/%Y %H:%M") 
-    except (ValueError, TypeError): # ดักจับ Error ถ้า format ผิด หรือ ค่าเป็น None
-        # ถ้าแปลงไม่ได้ ก็คืนค่า string เดิมกลับไป
-        return datetime_string_from_db 
+        dt = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+        formatted = dt.strftime("%d/%m/%Y %H:%M")
+        return formatted
+    except (ValueError, TypeError):
+        return datetime_str
 
-# --- คลาส Cart (เวอร์ชัน Dictionary - อาจไม่ได้ใช้งานในโปรเจกต์หลัก) ---
-# หมายเหตุ: โปรเจกต์หลักของคุณใช้ Cart จาก models.py ซึ่งใช้ CartItem object
-# คลาสนี้เป็นเวอร์ชันที่ง่ายกว่า โดยใช้ Dictionary ล้วนๆ
-class Cart_Dict_Version: 
-    """คลาสจัดการตะกร้าสินค้า (ใช้ Dictionary เก็บข้อมูล)"""
-    def __init__(self):
-        # โครงสร้าง: { product_id: {'product': product_dict, 'quantity': int} }
-        self.items = {}  
+
+# === ตะกร้าสินค้า (แบบ Dictionary) ===
+
+class Cart_Dict_Version:
+    """จัดการตะกร้าสินค้าแบบง่าย"""
     
-    def add_item(self, product_dict, quantity=1):
-        """เพิ่มสินค้า (ที่เป็น dict) ในตะกร้า"""
-        product_id = product_dict['product_id']
+    def __init__(self):
+        self.items = {}
+    
+    def add_item(self, product, quantity=1):
+        """เพิ่มสินค้าลงตะกร้า"""
+        product_id = product['product_id']
+        
         if product_id in self.items:
-            # ถ้ามีอยู่แล้ว บวกจำนวน
+            # มีอยู่แล้ว - เพิ่มจำนวน
             self.items[product_id]['quantity'] += quantity
         else:
-            # ถ้ายังไม่มี เพิ่มใหม่
+            # ยังไม่มี - เพิ่มใหม่
             self.items[product_id] = {
-                'product': product_dict, # เก็บ product dict ทั้งก้อน
+                'product': product,
                 'quantity': quantity
             }
     
@@ -106,65 +89,61 @@ class Cart_Dict_Version:
             del self.items[product_id]
     
     def update_quantity(self, product_id, quantity):
-        """อัพเดทจำนวนสินค้า"""
+        """เปลี่ยนจำนวนสินค้า"""
         if product_id in self.items:
             if quantity <= 0:
-                self.remove_item(product_id) # ถ้าจำนวน <= 0 ให้ลบ
+                self.remove_item(product_id)
             else:
                 self.items[product_id]['quantity'] = quantity
     
     def get_total(self):
-        """คำนวณราคารวมทั้งตะกร้า"""
-        total_price = 0
-        # วนลูป value (ที่เป็น dict {'product':..., 'quantity':...})
-        for item_data in self.items.values(): 
-            product_info = item_data['product']
-            item_quantity = item_data['quantity']
-            total_price += product_info['price'] * item_quantity
-        return total_price
+        """คำนวณราคารวม"""
+        total = 0
+        for item in self.items.values():
+            price = item['product']['price']
+            qty = item['quantity']
+            total += price * qty
+        return total
     
     def get_item_count(self):
-        """นับจำนวนชิ้นสินค้าทั้งหมดในตะกร้า"""
-        total_items = 0
-        for item_data in self.items.values():
-            total_items += item_data['quantity']
-        return total_items
+        """นับจำนวนสินค้าทั้งหมด"""
+        count = 0
+        for item in self.items.values():
+            count += item['quantity']
+        return count
     
     def clear(self):
-        """ล้างตะกร้า (ทำให้ dict ว่าง)"""
+        """ล้างตะกร้า"""
         self.items = {}
     
     def get_items_for_order(self):
-        """
-        เตรียมข้อมูล items ในรูปแบบที่ database.create_order ต้องการ
-        (แต่ create_order ปัจจุบันรับ CartItem object)
-        """
-        order_items_list = []
-        for item_data in self.items.values():
-            product_info = item_data['product']
-            order_items_list.append({
-                'product_id': product_info['product_id'],
-                'quantity': item_data['quantity'],
-                'price': product_info['price'] # ราคา ณ ตอนที่หยิบใส่ตะกร้า
+        """เตรียมข้อมูลสำหรับสั่งซื้อ"""
+        order_items = []
+        for item in self.items.values():
+            product = item['product']
+            order_items.append({
+                'product_id': product['product_id'],
+                'quantity': item['quantity'],
+                'price': product['price']
             })
-        return order_items_list
+        return order_items
 
-# --- ฟังก์ชันแสดงข้อความ (Message Box Wrappers) ---
 
-def show_message(parent_window, title_text, message_text, message_type="info"):
-    """แสดงกล่องข้อความ (Info, Warning, Error)"""
-    # ใช้ messagebox ที่ import ไว้ข้างบน
-    if message_type == "info":
-        messagebox.showinfo(title_text, message_text, parent=parent_window)
-    elif message_type == "warning":
-        messagebox.showwarning(title_text, message_text, parent=parent_window)
-    elif message_type == "error":
-        messagebox.showerror(title_text, message_text, parent=parent_window)
-    else: # ถ้าใส่ type ผิด ก็ให้เป็น info
-        messagebox.showinfo(title_text, message_text, parent=parent_window)
+# === แสดงข้อความ ===
 
-def confirm_dialog(parent_window, title_text, question_message):
-    """แสดงกล่องข้อความถามยืนยัน (Yes/No)"""
-    # ใช้ messagebox ที่ import ไว้ข้างบน
-    # askyesno คืนค่า True ถ้ากด Yes, False ถ้ากด No
-    return messagebox.askyesno(title_text, question_message, parent=parent_window)
+def show_message(parent, title, message, msg_type="info"):
+    """แสดงกล่องข้อความ"""
+    if msg_type == "info":
+        messagebox.showinfo(title, message, parent=parent)
+    elif msg_type == "warning":
+        messagebox.showwarning(title, message, parent=parent)
+    elif msg_type == "error":
+        messagebox.showerror(title, message, parent=parent)
+    else:
+        messagebox.showinfo(title, message, parent=parent)
+
+
+def confirm_dialog(parent, title, question):
+    """แสดงกล่องถามยืนยัน"""
+    answer = messagebox.askyesno(title, question, parent=parent)
+    return answer

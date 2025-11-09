@@ -3,404 +3,339 @@ from tkinter import ttk
 
 class SalesHistoryWindow(ctk.CTkFrame):
     def __init__(self, parent, main_app):
-        super().__init__(parent, fg_color="#FFF0F5") # สีชมพูอ่อน พื้นหลังหลัก
+        super().__init__(parent, fg_color="#FFF0F5")
         self.main_app = main_app
-        # ดึง object database จาก main_app
-        self.db = main_app.db 
-        
-        # สร้างหน้าจอ UI ทันที
-        self.setup_ui() 
+        self.db = main_app.db
+        self.create_ui()
     
     def on_show(self):
-        """
-        ทำงานทุกครั้งที่เปิดหน้านี้: ลบของเก่า สร้าง UI ใหม่ทั้งหมด
-        เพื่อให้ข้อมูลสถิติและตารางสดใหม่เสมอ
-        """
-        # ลบ widget เก่าทั้งหมด
+        """เปิดหน้านี้ - ลบของเก่าสร้างใหม่"""
         for widget in self.winfo_children():
             widget.destroy()
-        # สร้าง UI ใหม่
-        self.setup_ui() 
+        self.create_ui()
 
-    def setup_ui(self):
-        # --- 1. กำหนดการขยายตัวของ Grid หลัก ---
-        # ให้คอลัมน์ 0 (คอลัมน์เดียว) ขยายเต็มความกว้าง
-        self.grid_columnconfigure(0, weight=1) 
-        # ให้แถวที่ 2 (main_frame) ขยายเต็มความสูง (แถว 0=header, 1=stats, 2=table)
-        self.grid_rowconfigure(2, weight=1) 
+    def create_ui(self):
+        """สร้างหน้าจอทั้งหมด"""
+        # ตั้งค่าให้ขยายเต็มหน้าจอ
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
-        # --- 2. สร้างส่วนหัว (Header) ---
-        # (ย้ายโค้ดจาก create_header มาไว้ตรงนี้)
-        header_frame = ctk.CTkFrame(
-            self, # ใส่ header ใน SalesHistoryWindow (self)
-            fg_color="#FFFFFF", 
-            corner_radius=0, 
-            height=70, 
-            border_width=1, 
-            border_color="#FFEBEE"
-        )
-        # วาง header แถวบนสุด (row=0) ยืดเต็มความกว้าง (sticky="ew")
-        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 20)) 
-        # ให้คอลัมน์ 1 ใน header ขยาย (ดันปุ่มไปขวา)
-        header_frame.grid_columnconfigure(1, weight=1) 
-        
-        # Label ชื่อหน้า
-        header_title = ctk.CTkLabel(
-            header_frame,
-            text="📊 ประวัติการขาย",
-            font=ctk.CTkFont(size=28, weight="bold"),
-            text_color="#FFB6C1"
-        )
-        header_title.pack(side="left", padx=30, pady=20)
-        
-        # Frame สำหรับวางปุ่มทางขวา
-        header_buttons_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
-        header_buttons_frame.pack(side="right", padx=20)
-        
-        # ปุ่ม "หน้าหลัก"
-        home_button = ctk.CTkButton(
-            header_buttons_frame,
-            text="🏠 หน้าหลัก",
-            command=lambda: self.main_app.navigate_to('HomeWindow'), # กดแล้วกลับ Home
-            fg_color="transparent",
-            text_color="#FFB6C1",
-            hover_color="#FFE4E1",
-            font=ctk.CTkFont(size=14)
-        )
-        home_button.pack(side="left", padx=5)
-        
-        # ปุ่ม "Dashboard"
-        dashboard_button = ctk.CTkButton(
-            header_buttons_frame,
-            text="📊 Dashboard",
-            command=lambda: self.main_app.navigate_to('AdminDashboardWindow'), # กดแล้วไป Dashboard
-            fg_color="#4CAF50", # สีเขียว
-            hover_color="#66BB6A",
-            font=ctk.CTkFont(size=14)
-        )
-        dashboard_button.pack(side="left", padx=5)
-        # --- จบส่วน Header ---
+        # สร้างส่วนต่างๆ
+        self.create_header()
+        self.create_stats_cards()
+        self.create_table_area()
 
-        # --- 3. สร้าง Frame สำหรับวางการ์ดสถิติ ---
-        stats_cards_frame = ctk.CTkFrame(self, fg_color="transparent")
-        # วาง frame นี้ในแถว 1 (ใต้ header) ยืดเต็มกว้าง
-        stats_cards_frame.grid(row=1, column=0, sticky="ew", padx=30, pady=(0, 10)) 
-        # แบ่ง frame นี้เป็น 4 คอลัมน์เท่าๆ กัน
-        stats_cards_frame.grid_columnconfigure((0, 1, 2, 3), weight=1) 
+    def create_header(self):
+        """สร้างส่วนหัวด้านบน"""
+        header = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=0,
+                             height=70, border_width=1, border_color="#FFEBEE")
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 20))
+        header.grid_columnconfigure(1, weight=1)
         
-        # --- 3.1 ดึงข้อมูลสถิติจาก DB ---
-        dashboard_stats = self.db.get_dashboard_stats() 
-        # ดึงจำนวนสินค้าที่ขายได้ทั้งหมด (เรียกฟังก์ชันช่วย)
-        total_items_sold_count = self.get_total_items_sold() 
+        # ชื่อหน้า
+        title = ctk.CTkLabel(header, text="📊 ประวัติการขาย",
+                            font=ctk.CTkFont(size=28, weight="bold"),
+                            text_color="#FFB6C1")
+        title.pack(side="left", padx=30, pady=20)
         
-        # --- 3.2 เตรียมข้อมูลสำหรับการ์ดแต่ละใบ ---
-        all_cards_data = [
-            { # การ์ด 1: ยอดขายรวม
-                'title': 'ยอดขายรวม',
-                'value': f"{dashboard_stats['total_orders']}",
-                'subtitle': 'คำสั่งซื้อ',
+        # กรอบปุ่มขวา
+        btn_box = ctk.CTkFrame(header, fg_color="transparent")
+        btn_box.pack(side="right", padx=20)
+        
+        # ปุ่มหน้าหลัก
+        home_btn = ctk.CTkButton(btn_box, text="🏠 หน้าหลัก",
+                                command=self.go_home,
+                                fg_color="transparent", text_color="#FFB6C1",
+                                hover_color="#FFE4E1",
+                                font=ctk.CTkFont(size=14))
+        home_btn.pack(side="left", padx=5)
+        
+        # ปุ่ม Dashboard
+        dash_btn = ctk.CTkButton(btn_box, text="📊 Dashboard",
+                                command=self.go_dashboard,
+                                fg_color="#4CAF50", hover_color="#66BB6A",
+                                font=ctk.CTkFont(size=14))
+        dash_btn.pack(side="left", padx=5)
+
+    def create_stats_cards(self):
+        """สร้างการ์ดสถิติ 4 ใบ"""
+        # กรอบวางการ์ด
+        cards_box = ctk.CTkFrame(self, fg_color="transparent")
+        cards_box.grid(row=1, column=0, sticky="ew", padx=30, pady=(0, 10))
+        cards_box.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        
+        # ดึงข้อมูลสถิติ
+        stats = self.db.get_dashboard_stats()
+        total_sold = self.count_total_items()
+        
+        # ข้อมูลการ์ดทั้ง 4 ใบ
+        cards = [
+            {
                 'icon': '🛒',
-                'color': '#4CAF50' # สีเขียว
+                'title': 'ยอดขายรวม',
+                'value': f"{stats['total_orders']}",
+                'subtitle': 'คำสั่งซื้อ',
+                'color': '#4CAF50'
             },
-            { # การ์ด 2: รายได้ทั้งหมด
-                'title': 'รายได้ทั้งหมด',
-                'value': f"฿{dashboard_stats['total_revenue']:,.2f}", # จัดรูปแบบ
-                'subtitle': 'บาท',
+            {
                 'icon': '💰',
-                'color': '#2196F3' # สีฟ้า
+                'title': 'รายได้ทั้งหมด',
+                'value': f"฿{stats['total_revenue']:,.2f}",
+                'subtitle': 'บาท',
+                'color': '#2196F3'
             },
-            { # การ์ด 3: ลูกค้าทั้งหมด
-                'title': 'ลูกค้าทั้งหมด',
-                'value': f"{dashboard_stats['total_customers']}",
-                'subtitle': 'คน',
+            {
                 'icon': '👥',
-                'color': '#FF9800' # สีส้ม
+                'title': 'ลูกค้าทั้งหมด',
+                'value': f"{stats['total_customers']}",
+                'subtitle': 'คน',
+                'color': '#FF9800'
             },
-            { # การ์ด 4: สินค้าขายแล้ว
-                'title': 'สินค้าขายแล้ว',
-                'value': f"{total_items_sold_count}", # ใช้ค่าที่ดึงมา
-                'subtitle': 'ชิ้น',
+            {
                 'icon': '📦',
-                'color': '#E91E63' # สีชมพูเข้ม
+                'title': 'สินค้าขายแล้ว',
+                'value': f"{total_sold}",
+                'subtitle': 'ชิ้น',
+                'color': '#E91E63'
             }
         ]
         
-        # --- 3.3 วนลูปสร้างการ์ดแต่ละใบ ---
-        for i, single_card_data in enumerate(all_cards_data):
-            # --- สร้างการ์ด 1 ใบ (โค้ดจาก create_stat_card เดิม) ---
-            # (ย้ายโค้ดสร้างการ์ดมาไว้ใน loop นี้)
-            
-            # สร้าง Frame ของการ์ด
-            stat_card = ctk.CTkFrame(
-                stats_cards_frame, # ใส่การ์ดลงใน frame นี้
-                fg_color="#FFFFFF",
-                corner_radius=15,
-                border_width=2,
-                border_color="#FFEBEE"
-            )
-            
-            # Icon (Emoji)
-            icon_label = ctk.CTkLabel(
-                stat_card,
-                text=single_card_data['icon'],
-                font=ctk.CTkFont(size=40)
-            )
-            icon_label.pack(pady=(15, 5))
-            
-            # Title (เช่น 'ยอดขายรวม')
-            title_label = ctk.CTkLabel(
-                stat_card,
-                text=single_card_data['title'],
-                font=ctk.CTkFont(size=12),
-                text_color="gray50"
-            )
-            title_label.pack(pady=2)
-            
-            # Value (ตัวเลขสถิติ)
-            value_label = ctk.CTkLabel(
-                stat_card,
-                text=single_card_data['value'],
-                font=ctk.CTkFont(size=24, weight="bold"),
-                text_color=single_card_data['color'] # ใช้สีตามที่กำหนด
-            )
-            value_label.pack(pady=2)
-            
-            # Subtitle (เช่น 'คำสั่งซื้อ')
-            subtitle_label = ctk.CTkLabel(
-                stat_card,
-                text=single_card_data['subtitle'],
-                font=ctk.CTkFont(size=11),
-                text_color="gray40"
-            )
-            subtitle_label.pack(pady=(2, 15))
-            # --- จบการสร้างการ์ด 1 ใบ ---
-            
-            # วางการ์ดลงใน stats_cards_frame ตามคอลัมน์ i (0, 1, 2, 3)
-            stat_card.grid(row=0, column=i, padx=10, sticky="nsew") 
-        # --- จบส่วนสร้างการ์ดสถิติ ---
+        # สร้างการ์ดทีละใบ
+        for i, card_info in enumerate(cards):
+            self.make_card(cards_box, card_info, i)
 
-        # --- 4. สร้าง Frame หลักสำหรับเนื้อหา (ตารางและปุ่ม) ---
-        main_content_frame = ctk.CTkFrame(
-            self, # ใส่ใน SalesHistoryWindow (self)
-            fg_color="#FFFFFF",
-            corner_radius=20,
-            border_width=2,
-            border_color="#FFEBEE"
-        )
-        # วาง frame นี้ในแถว 2 (ใต้การ์ดสถิติ) ยืดเต็มพื้นที่
-        main_content_frame.grid(row=2, column=0, sticky="nsew", padx=30, pady=(0, 20)) 
-        # ให้คอลัมน์ 0 ใน frame นี้ขยายเต็มความกว้าง
-        main_content_frame.grid_columnconfigure(0, weight=1) 
-        # ให้แถวที่ 1 (tree_frame) ใน frame นี้ขยายเต็มความสูง
-        main_content_frame.grid_rowconfigure(1, weight=1) 
+    def make_card(self, parent, info, col):
+        """สร้างการ์ดสถิติ 1 ใบ"""
+        card = ctk.CTkFrame(parent, fg_color="#FFFFFF", corner_radius=15,
+                           border_width=2, border_color="#FFEBEE")
+        
+        # ไอคอน
+        icon = ctk.CTkLabel(card, text=info['icon'],
+                           font=ctk.CTkFont(size=40))
+        icon.pack(pady=(15, 5))
+        
+        # ชื่อ
+        title = ctk.CTkLabel(card, text=info['title'],
+                            font=ctk.CTkFont(size=12),
+                            text_color="gray50")
+        title.pack(pady=2)
+        
+        # ค่าตัวเลข
+        value = ctk.CTkLabel(card, text=info['value'],
+                            font=ctk.CTkFont(size=24, weight="bold"),
+                            text_color=info['color'])
+        value.pack(pady=2)
+        
+        # หน่วย
+        subtitle = ctk.CTkLabel(card, text=info['subtitle'],
+                               font=ctk.CTkFont(size=11),
+                               text_color="gray40")
+        subtitle.pack(pady=(2, 15))
+        
+        # วางการ์ด
+        card.grid(row=0, column=col, padx=10, sticky="nsew")
 
-        # --- 4.1 สร้าง Title ของตาราง ---
-        table_title_frame = ctk.CTkFrame(main_content_frame, fg_color="#FFE4E1", corner_radius=15)
-        # วาง title frame ในแถว 0 ของ main_content_frame
-        table_title_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=20) 
+    def create_table_area(self):
+        """สร้างพื้นที่ตารางและปุ่ม"""
+        # กรอบหลัก
+        main_box = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=20,
+                               border_width=2, border_color="#FFEBEE")
+        main_box.grid(row=2, column=0, sticky="nsew", padx=30, pady=(0, 20))
+        main_box.grid_columnconfigure(0, weight=1)
+        main_box.grid_rowconfigure(1, weight=1)
+
+        # หัวตาราง
+        title_box = ctk.CTkFrame(main_box, fg_color="#FFE4E1", corner_radius=15)
+        title_box.grid(row=0, column=0, sticky="ew", padx=20, pady=20)
         
-        table_title_label = ctk.CTkLabel(
-            table_title_frame,
-            text="📋 ประวัติการขายทั้งหมด",
-            font=ctk.CTkFont(size=20, weight="bold"),
-            text_color="#6D4C41"
-        )
-        table_title_label.pack(pady=15)
+        title = ctk.CTkLabel(title_box, text="📋 ประวัติการขายทั้งหมด",
+                            font=ctk.CTkFont(size=20, weight="bold"),
+                            text_color="#6D4C41")
+        title.pack(pady=15)
         
-        # --- 4.2 สร้าง Frame สำหรับตาราง Treeview และ Scrollbar ---
-        # (ย้ายโค้ดส่วนใหญ่จาก create_sales_table มาไว้ตรงนี้)
-        tree_view_frame = ctk.CTkFrame(main_content_frame, fg_color="transparent")
-        # วาง frame นี้ในแถว 1 (ใต้ title) ยืดเต็มพื้นที่
-        tree_view_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20)) 
-        # ให้คอลัมน์ 0 (ตาราง) ขยายเต็มกว้าง
-        tree_view_frame.grid_columnconfigure(0, weight=1) 
-        # ให้แถว 0 (ตาราง) ขยายเต็มสูง
-        tree_view_frame.grid_rowconfigure(0, weight=1) 
+        # สร้างตาราง
+        self.create_table(main_box)
         
-        # --- 4.2.1 ตั้งค่า Style ให้กับตาราง ---
-        tree_style = ttk.Style()
-        tree_style.configure("Sales.Treeview", rowheight=40, font=('Arial', 12)) 
-        tree_style.configure("Sales.Treeview.Heading", font=('Arial', 13, 'bold'))
+        # สร้างปุ่มควบคุม
+        self.create_buttons(main_box)
+
+    def create_table(self, parent):
+        """สร้างตารางแสดงข้อมูล"""
+        # กรอบตาราง
+        table_box = ctk.CTkFrame(parent, fg_color="transparent")
+        table_box.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        table_box.grid_columnconfigure(0, weight=1)
+        table_box.grid_rowconfigure(0, weight=1)
         
-        # --- 4.2.2 สร้างตาราง Treeview ---
-        # กำหนดชื่อคอลัมน์ภายใน
-        table_columns = ("order_id", "date", "customer", "items", "amount", "payment", "status") 
-        # สร้าง Treeview ใส่ใน tree_view_frame
-        self.sales_history_tree = ttk.Treeview(
-            tree_view_frame,
-            columns=table_columns,
-            show="headings", # ไม่แสดงคอลัมน์ #0
-            style="Sales.Treeview" # ใช้ style ที่ตั้งไว้
-        )
+        # ตั้งค่าสไตล์
+        style = ttk.Style()
+        style.configure("Sales.Treeview", rowheight=40, font=('Arial', 12))
+        style.configure("Sales.Treeview.Heading", font=('Arial', 13, 'bold'))
         
-        # --- 4.2.3 ตั้งค่าหัวตาราง (ที่แสดงผล) และความกว้าง ---
-        column_headings = {
-            "order_id": "Order ID", "date": "วันที่", "customer": "ลูกค้า",
-            "items": "รายการสินค้า", "amount": "ยอดเงิน", "payment": "ชำระเงิน",
+        # สร้างตาราง
+        columns = ("order_id", "date", "customer", "items", 
+                  "amount", "payment", "status")
+        
+        self.table = ttk.Treeview(table_box, columns=columns,
+                                 show="headings", style="Sales.Treeview")
+        
+        # ตั้งค่าหัวตาราง
+        headers = {
+            "order_id": "Order ID",
+            "date": "วันที่",
+            "customer": "ลูกค้า",
+            "items": "รายการสินค้า",
+            "amount": "ยอดเงิน",
+            "payment": "ชำระเงิน",
             "status": "สถานะ"
         }
-        column_widths = {
-            "order_id": 80, "date": 150, "customer": 180, "items": 300,
-            "amount": 120, "payment": 150, "status": 120
-        }
-        column_anchors = { # การจัดเรียงในคอลัมน์
-            "order_id": "center", "amount": "e", "status": "center", 
-            # ค่า default คือ "w" (ชิดซ้าย)
+        
+        widths = {
+            "order_id": 80, "date": 150, "customer": 180,
+            "items": 300, "amount": 120, "payment": 150, "status": 120
         }
         
-        # วนลูปตั้งค่าหัวตารางแต่ละคอลัมน์
-        for col_name in table_columns:
-            self.sales_history_tree.heading(col_name, text=column_headings[col_name])
-            self.sales_history_tree.column(
-                col_name,
-                width=column_widths[col_name],
-                # ใช้ .get() เพื่อเอา anchor ถ้าไม่มี ใช้ 'w' (ชิดซ้าย) เป็น default
-                anchor=column_anchors.get(col_name, "w") 
-            )
+        aligns = {
+            "order_id": "center",
+            "amount": "e",
+            "status": "center"
+        }
         
-        # --- 4.2.4 สร้าง Scrollbar ---
-        tree_scrollbar = ttk.Scrollbar(tree_view_frame, orient="vertical", command=self.sales_history_tree.yview)
-        # ผูก scrollbar เข้ากับ treeview
-        self.sales_history_tree.configure(yscrollcommand=tree_scrollbar.set) 
+        # ตั้งค่าแต่ละคอลัมน์
+        for col in columns:
+            self.table.heading(col, text=headers[col])
+            self.table.column(col, width=widths[col],
+                            anchor=aligns.get(col, "w"))
         
-        # วาง treeview และ scrollbar ลงใน tree_view_frame โดยใช้ grid
-        self.sales_history_tree.grid(row=0, column=0, sticky="nsew") # ตารางอยู่ คอลัมน์ 0
-        tree_scrollbar.grid(row=0, column=1, sticky="ns") # scrollbar อยู่ คอลัมน์ 1
+        # สร้าง scrollbar
+        scrollbar = ttk.Scrollbar(table_box, orient="vertical",
+                                 command=self.table.yview)
+        self.table.configure(yscrollcommand=scrollbar.set)
         
-        # --- 4.2.5 โหลดข้อมูลใส่ตาราง ---
-        self.load_sales_data() # เรียกฟังก์ชันโหลดข้อมูล
+        # วางตาราง
+        self.table.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
         
-        # --- 4.3 สร้าง Frame สำหรับวางปุ่มควบคุมใต้ตาราง ---
-        action_buttons_frame = ctk.CTkFrame(main_content_frame, fg_color="transparent")
-        # วาง frame นี้ในแถว 2 (ใต้ตาราง) ของ main_content_frame
-        action_buttons_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 20)) 
-        
-        # --- 4.3.1 สร้างปุ่ม "รีเฟรช" ---
-        refresh_button = ctk.CTkButton(
-            action_buttons_frame,
-            text="🔄 รีเฟรช",
-            command=self.on_show, # กดแล้วเรียก on_show (ลบ+สร้างใหม่)
-            fg_color="#FFB6C1", # สีชมพู
-            hover_color="#FFC0CB",
-            height=40, corner_radius=10,
-            font=ctk.CTkFont(size=14, weight="bold")
-        )
-        # ใช้ pack วางปุ่มเรียงกันใน action_buttons_frame
-        refresh_button.pack(side="left", padx=5, fill="x", expand=True) 
-        
-        # --- 4.3.2 สร้างปุ่ม "ดูสถิติเพิ่มเติม" ---
-        more_stats_button = ctk.CTkButton(
-            action_buttons_frame,
-            text="📊 ดูสถิติเพิ่มเติม",
-            command=lambda: self.main_app.navigate_to('AdminDashboardWindow'), # ไปหน้า Dashboard
-            fg_color="#4CAF50", # สีเขียว
-            hover_color="#66BB6A",
-            height=40, corner_radius=10,
-            font=ctk.CTkFont(size=14, weight="bold")
-        )
-        more_stats_button.pack(side="left", padx=5, fill="x", expand=True)
-        
-        # --- 4.3.3 สร้างปุ่ม "จัดการคำสั่งซื้อ" ---
-        manage_orders_button = ctk.CTkButton(
-            action_buttons_frame,
-            text="📦 จัดการคำสั่งซื้อ",
-            command=lambda: self.main_app.navigate_to('AdminOrdersWindow'), # ไปหน้า AdminOrders
-            fg_color="#2196F3", # สีฟ้า
-            hover_color="#42A5F5",
-            height=40, corner_radius=10,
-            font=ctk.CTkFont(size=14, weight="bold")
-        )
-        manage_orders_button.pack(side="left", padx=5, fill="x", expand=True)
-        # --- จบส่วนสร้าง UI ---
+        # โหลดข้อมูล
+        self.load_table_data()
 
-    # --- (ลบฟังก์ชัน create_header, create_stats_cards, create_stat_card) ---
-    # --- (ลบฟังก์ชัน create_sales_table) ---
-    
-    def get_total_items_sold(self):
-        """คำนวณจำนวนสินค้าที่ขายไปทั้งหมด (Logic เดิม)"""
-        db_cursor = None # ประกาศตัวแปร cursor ก่อน try
-        total_sold = 0 # ค่าเริ่มต้น
+    def create_buttons(self, parent):
+        """สร้างปุ่มควบคุม"""
+        btn_box = ctk.CTkFrame(parent, fg_color="transparent")
+        btn_box.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 20))
+        
+        # ปุ่มรีเฟรช
+        refresh_btn = ctk.CTkButton(btn_box, text="🔄 รีเฟรช",
+                                   command=self.on_show,
+                                   fg_color="#FFB6C1", hover_color="#FFC0CB",
+                                   height=40, corner_radius=10,
+                                   font=ctk.CTkFont(size=14, weight="bold"))
+        refresh_btn.pack(side="left", padx=5, fill="x", expand=True)
+        
+        # ปุ่มดูสถิติ
+        stats_btn = ctk.CTkButton(btn_box, text="📊 ดูสถิติเพิ่มเติม",
+                                 command=self.go_dashboard,
+                                 fg_color="#4CAF50", hover_color="#66BB6A",
+                                 height=40, corner_radius=10,
+                                 font=ctk.CTkFont(size=14, weight="bold"))
+        stats_btn.pack(side="left", padx=5, fill="x", expand=True)
+        
+        # ปุ่มจัดการ
+        manage_btn = ctk.CTkButton(btn_box, text="📦 จัดการคำสั่งซื้อ",
+                                  command=self.go_orders,
+                                  fg_color="#2196F3", hover_color="#42A5F5",
+                                  height=40, corner_radius=10,
+                                  font=ctk.CTkFont(size=14, weight="bold"))
+        manage_btn.pack(side="left", padx=5, fill="x", expand=True)
+
+    def count_total_items(self):
+        """นับจำนวนสินค้าที่ขายทั้งหมด"""
+        total = 0
+        cursor = None
+        
         try:
-            db_cursor = self.db.connect() # เปิด connection
-            # สั่ง SQL รวม quantity ทั้งหมดใน order_items
-            db_cursor.execute("SELECT COALESCE(SUM(quantity), 0) FROM order_items") 
-            # ดึงผลลัพธ์ (แถวแรก, คอลัมน์แรก)
-            result = db_cursor.fetchone() 
+            cursor = self.db.connect()
+            cursor.execute("SELECT COALESCE(SUM(quantity), 0) FROM order_items")
+            result = cursor.fetchone()
             if result:
-                total_sold = result[0]
-        except Exception as e:
-            print(f"Error getting total items sold: {e}")
+                total = result[0]
+        except Exception as error:
+            print(f"นับสินค้าไม่สำเร็จ: {error}")
         finally:
-            # --- สำคัญ: ต้อง close connection เสมอ ไม่ว่าจะสำเร็จหรือ error ---
-            if self.db: # เช็คว่า self.db ถูกสร้างหรือยัง (อาจไม่จำเป็น แต่ปลอดภัย)
-                self.db.close() 
-        return total_sold
-    
-    def load_sales_data(self):
-        """โหลดข้อมูลประวัติการขายมาใส่ตาราง (Logic เดิม)"""
-        # --- 1. ล้างข้อมูลเก่าในตาราง ---
-        for item_id in self.sales_history_tree.get_children():
-            self.sales_history_tree.delete(item_id)
+            if self.db:
+                self.db.close()
         
-        # --- 2. ดึงข้อมูล Order ทั้งหมดจาก DB ---
-        all_orders_data = self.db.get_all_orders()
+        return total
+
+    def load_table_data(self):
+        """โหลดข้อมูลใส่ตาราง"""
+        # ลบข้อมูลเก่า
+        for item in self.table.get_children():
+            self.table.delete(item)
         
-        # --- 3. เตรียมข้อความสำหรับ Status และ Payment ---
-        status_text_map = {
+        # ดึงข้อมูลทั้งหมด
+        orders = self.db.get_all_orders()
+        
+        # แปลภาษาสถานะ
+        status_map = {
             'pending': '⏳ รอดำเนินการ',
             'confirmed': '✅ ยืนยันแล้ว',
             'shipped': '🚚 กำลังจัดส่ง',
-            'delivered': '✔️ สำเร็จ', # เปลี่ยนจาก จัดส่งสำเร็จ
+            'delivered': '✔️ สำเร็จ',
             'cancelled': '❌ ยกเลิก'
         }
-        payment_text_map = {
+        
+        payment_map = {
             'โอนเงินผ่านธนาคาร': '🏦 โอนเงิน',
             'เก็บเงินปลายทาง': '📦 COD',
-            'Credit Card': '💳 บัตร' # เผื่อมีในอนาคต
+            'Credit Card': '💳 บัตร'
         }
         
-        # --- 4. วนลูปเพิ่มข้อมูลทีละแถว ---
-        for order_dict in all_orders_data:
-            # --- 4.1 เตรียมข้อมูลสำหรับแต่ละคอลัมน์ ---
+        # เพิ่มข้อมูลทีละแถว
+        for order in orders:
+            # Order ID
+            order_id = f"#{order['order_id']}"
             
-            # Order ID (ใส่ # นำหน้า)
-            display_order_id = f"#{order_dict['order_id']}"
+            # วันที่
+            date = order.get('created_at', '-')
+            if date and len(date) > 16:
+                date = date[:16]
             
-            # วันที่ (ตัดวินาที)
-            order_date = order_dict.get('created_at', '-')
-            if order_date and len(order_date) > 16:
-                order_date = order_date[:16]
-                
-            # ลูกค้า (ใช้ full_name)
-            customer_name = order_dict.get('full_name', '-') # ใช้ .get ปลอดภัยกว่า
+            # ลูกค้า
+            customer = order.get('full_name', '-')
             
-            # รายการสินค้า (ตัดให้สั้นถ้าเกิน 50 ตัว)
-            items_string = order_dict.get('items', '')
-            if len(items_string) > 50:
-                items_display = items_string[:47] + "..." # ตัดเหลือ 47 + ...
-            elif not items_string:
-                items_display = 'ไม่มีรายการ'
-            else:
-                items_display = items_string
+            # รายการสินค้า
+            items = order.get('items', '')
+            if len(items) > 50:
+                items = items[:47] + "..."
+            elif not items:
+                items = 'ไม่มีรายการ'
             
-            # ยอดเงิน (จัดรูปแบบ)
-            amount_display = f"฿{order_dict.get('total_amount', 0):,.2f}"
+            # ยอดเงิน
+            amount = f"฿{order.get('total_amount', 0):,.2f}"
             
-            # การชำระเงิน (แปลภาษา)
-            payment_method = order_dict.get('payment_method', '')
-            payment_display = payment_text_map.get(payment_method, payment_method) # ถ้าไม่เจอ key ใช้ค่าเดิม
+            # วิธีชำระเงิน
+            payment = order.get('payment_method', '')
+            payment = payment_map.get(payment, payment)
             
-            # สถานะ (แปลภาษา)
-            status = order_dict.get('status', '')
-            status_display = status_text_map.get(status, status) # ถ้าไม่เจอ key ใช้ค่าเดิม
+            # สถานะ
+            status = order.get('status', '')
+            status = status_map.get(status, status)
             
-            # --- 4.2 เพิ่มแถวใหม่ลงในตาราง ---
-            self.sales_history_tree.insert("", "end", values=(
-                display_order_id,
-                order_date,
-                customer_name,
-                items_display,
-                amount_display,
-                payment_display,
-                status_display
+            # เพิ่มแถว
+            self.table.insert("", "end", values=(
+                order_id, date, customer, items,
+                amount, payment, status
             ))
+
+    def go_home(self):
+        """กลับหน้าหลัก"""
+        self.main_app.navigate_to('HomeWindow')
+
+    def go_dashboard(self):
+        """ไป Dashboard"""
+        self.main_app.navigate_to('AdminDashboardWindow')
+
+    def go_orders(self):
+        """ไปหน้าจัดการคำสั่งซื้อ"""
+        self.main_app.navigate_to('AdminOrdersWindow')

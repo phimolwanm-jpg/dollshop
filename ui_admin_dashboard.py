@@ -1,518 +1,171 @@
+"""
+หน้า Admin Dashboard - แสดงสถิติและข้อมูลสรุป
+- สถิติรวม (ยอดขาย, รายได้, สินค้า, คำสั่งซื้อรอดำเนินการ)
+- สรุปยอดขายตามช่วงเวลา (รายวัน/เดือน/ปี)
+- สินค้าขายดี Top 5
+- สินค้าสต็อกต่ำ
+- คำสั่งซื้อล่าสุด
+"""
+
 import customtkinter as ctk
 from tkinter import ttk
-from datetime import datetime, timedelta
+from datetime import datetime
 from tkcalendar import DateEntry
 
+
 class AdminDashboardWindow(ctk.CTkFrame):
+    """หน้าจอแดชบอร์ดแอดมิน"""
+    
     def __init__(self, parent, main_app):
         super().__init__(parent, fg_color="#F8F9FA")
         self.main_app = main_app
         self.db = main_app.db
         
-        # ตัวแปรสำหรับเก็บวันที่/เดือน/ปีที่เลือก
-        self.selected_date = datetime.now()
-        self.selected_month = datetime.now().month
-        self.selected_year = datetime.now().year
+        # ตัวแปรเก็บวันที่/เดือน/ปีที่เลือก
+        self.selected_date = datetime.now()       # วันที่ปัจจุบัน
+        self.selected_month = datetime.now().month  # เดือนปัจจุบัน
+        self.selected_year = datetime.now().year    # ปีปัจจุบัน
         
-        self.setup_ui()
+        # สร้าง UI
+        self.create_layout()
+    
     
     def on_show(self):
-        """รีเฟรชข้อมูลทุกครั้งที่เปิดหน้านี้"""
-        # (ล้างและสร้าง UI ใหม่ทั้งหมด เพื่อให้ข้อมูลอัปเดต)
+        """ฟังก์ชันนี้จะถูกเรียกทุกครั้งที่เปิดหน้านี้"""
+        # ล้าง UI เดิมและสร้างใหม่ เพื่ออัปเดตข้อมูล
         for widget in self.winfo_children():
             widget.destroy()
-        self.setup_ui()
+        self.create_layout()
     
-    def setup_ui(self):
+    
+    def create_layout(self):
+        """สร้างโครงสร้างหน้าจอ"""
+        # ตั้งค่าการขยาย
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
         
-        # Header
-        self.create_header()
-        
-        # Main Content
-        main_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        main_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=20)
-        main_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
-        
-        # Row 0: Stats Cards
-        self.create_stats_cards(main_frame) # Row 0
-        
-        # Row 1: Sales History Summary (NEW SECTION)
-        self.create_sales_history_summary(main_frame) # Row 1
-        
-        # Row 2: Charts Section (Low Stock / Top Selling)
-        chart_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        chart_frame.grid(row=2, column=0, columnspan=4, sticky="ew", pady=20)
-        chart_frame.grid_columnconfigure((0, 1), weight=1)
-        
-        # Top Selling Products
-        self.create_top_products_section(chart_frame)
-        
-        # Low Stock Alert
-        self.create_low_stock_section(chart_frame)
-        
-        # Row 3: Recent Orders
-        self.create_recent_orders_section(main_frame) # Row 3
+        # สร้างส่วนต่างๆ
+        self.create_top_menu()              # แถบเมนูด้านบน
+        self.create_content_area()          # พื้นที่เนื้อหาหลัก
     
-    def create_header(self):
-        header = ctk.CTkFrame(self, fg_color="white", corner_radius=0, height=70)
-        header.grid(row=0, column=0, sticky="ew")
-        header.grid_columnconfigure(1, weight=1)
+    
+    # ==================== แถบเมนูด้านบน ====================
+    def create_top_menu(self):
+        """สร้างแถบเมนูด้านบน"""
+        menu_bar = ctk.CTkFrame(self, fg_color="white", corner_radius=0, height=70)
+        menu_bar.grid(row=0, column=0, sticky="ew")
+        menu_bar.grid_columnconfigure(1, weight=1)
         
-        ctk.CTkLabel(
-            header, 
+        # หัวข้อ
+        title = ctk.CTkLabel(
+            menu_bar, 
             text="📊 Admin Dashboard", 
             font=ctk.CTkFont(size=28, weight="bold"),
             text_color="#2E7D32"
-        ).pack(side="left", padx=30)
+        )
+        title.pack(side="left", padx=30)
         
-        btn_frame = ctk.CTkFrame(header, fg_color="transparent")
-        btn_frame.pack(side="right", padx=20)
+        # กลุ่มปุ่ม
+        button_area = ctk.CTkFrame(menu_bar, fg_color="transparent")
+        button_area.pack(side="right", padx=20)
         
-        ctk.CTkButton(
-            btn_frame,
+        # ปุ่มหน้าหลัก
+        btn_home = ctk.CTkButton(
+            button_area,
             text="🏠 หน้าหลัก",
-            command=lambda: self.main_app.navigate_to('HomeWindow'),
+            command=self.go_to_home,
             fg_color="transparent",
             text_color="gray50",
             hover_color="#F5F5F5"
-        ).pack(side="left", padx=5)
+        )
+        btn_home.pack(side="left", padx=5)
         
-        ctk.CTkButton(
-            btn_frame,
+        # ปุ่มจัดการสินค้า
+        btn_products = ctk.CTkButton(
+            button_area,
             text="⚙️ จัดการสินค้า",
-            command=lambda: self.main_app.navigate_to('AdminWindow'),
+            command=self.go_to_products,
             fg_color="#FF6B9D",
             hover_color="#FF8FB3"
-        ).pack(side="left", padx=5)
+        )
+        btn_products.pack(side="left", padx=5)
         
-        ctk.CTkButton(
-            btn_frame,
+        # ปุ่มจัดการคำสั่งซื้อ
+        btn_orders = ctk.CTkButton(
+            button_area,
             text="📦 จัดการคำสั่งซื้อ",
-            command=lambda: self.main_app.navigate_to('AdminOrdersWindow'),
+            command=self.go_to_orders,
             fg_color="#2196F3",
             hover_color="#42A5F5"
-        ).pack(side="left", padx=5)
+        )
+        btn_orders.pack(side="left", padx=5)
         
-        ctk.CTkButton(
-            btn_frame,
+        # ปุ่มประวัติการขาย
+        btn_history = ctk.CTkButton(
+            button_area,
             text="📊 ประวัติการขาย",
-            command=lambda: self.main_app.navigate_to('SalesHistoryWindow'),
+            command=self.go_to_sales_history,
             fg_color="#9C27B0",
             hover_color="#BA68C8"
-        ).pack(side="left", padx=5)
-
-        # --- (vVv เพิ่มปุ่มใหม่ตรงนี้ vVv) ---
-        ctk.CTkButton(
-            btn_frame,
+        )
+        btn_history.pack(side="left", padx=5)
+        
+        # ปุ่มจัดการผู้ใช้
+        btn_users = ctk.CTkButton(
+            button_area,
             text="👥 จัดการผู้ใช้",
-            command=lambda: self.main_app.navigate_to('AdminUsersWindow'), # (นี่คือชื่อหน้าใหม่)
-            fg_color="#FF9800", # สีส้ม
+            command=self.go_to_users,
+            fg_color="#FF9800",
             hover_color="#FFA726"
-        ).pack(side="left", padx=5)
-        # --- (vVv จบส่วนที่เพิ่ม vVv) ---
-
-    # vvvv ฟังก์ชันใหม่สำหรับสรุปยอดขาย (รายวัน/เดือน/ปี) พร้อม Date Selector vvvv
-    def create_sales_history_summary(self, parent):
-        """สร้างส่วนแสดงยอดขายรวมตามช่วงเวลา พร้อมเลือกวันที่"""
-        section = ctk.CTkFrame(parent, fg_color="white", corner_radius=15, border_width=1, border_color="#E0E0E0")
-        section.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(10, 20))
-        section.grid_columnconfigure(0, weight=1)
-        
-        # Header
-        header_frame = ctk.CTkFrame(section, fg_color="transparent")
-        header_frame.grid(row=0, column=0, sticky="ew", pady=(20, 10), padx=20)
-        header_frame.grid_columnconfigure(1, weight=1)
-        
-        ctk.CTkLabel(
-            header_frame, 
-            text="📈 สรุปยอดขายตามช่วงเวลา", 
-            font=ctk.CTkFont(size=18, weight="bold")
-        ).grid(row=0, column=0, sticky="w")
-        
-        # Tab Selector
-        tab_frame = ctk.CTkFrame(section, fg_color="transparent")
-        tab_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 15))
-        
-        self.period_var = ctk.StringVar(value="รายวัน")
-        
-        ctk.CTkSegmentedButton(
-            tab_frame,
-            values=["รายวัน", "รายเดือน", "รายปี"],
-            command=self.on_period_change,
-            variable=self.period_var,
-            fg_color="#E0E0E0",
-            selected_color="#4CAF50",
-            selected_hover_color="#66BB6A",
-            unselected_color="white",
-            unselected_hover_color="#F5F5F5"
-        ).pack(side="left", padx=(0, 20))
-        
-        # Date Selector Frame (จะเปลี่ยนตามประเภทที่เลือก)
-        self.date_selector_frame = ctk.CTkFrame(tab_frame, fg_color="transparent")
-        self.date_selector_frame.pack(side="left", fill="x", expand=True)
-        
-        # สร้าง Date Selector เริ่มต้น
-        self.create_date_selector()
-        
-        # Cards Container
-        self.cards_container = ctk.CTkFrame(section, fg_color="transparent")
-        self.cards_container.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 20))
-        self.cards_container.grid_columnconfigure((0, 1, 2), weight=1)
-        
-        # แสดงข้อมูลเริ่มต้น
-        self.update_sales_display()
-    
-    def create_date_selector(self):
-        """สร้าง Date Selector ตามประเภทที่เลือก"""
-        # ลบ widgets เดิมออก
-        for widget in self.date_selector_frame.winfo_children():
-            widget.destroy()
-        
-        period = self.period_var.get()
-        
-        if period == "รายวัน":
-            self.create_daily_selector()
-        elif period == "รายเดือน":
-            self.create_monthly_selector()
-        else:  # รายปี
-            self.create_yearly_selector()
-    
-    def create_daily_selector(self):
-        """สร้าง Date Picker สำหรับเลือกวัน"""
-        ctk.CTkLabel(
-            self.date_selector_frame,
-            text="เลือกวันที่:",
-            font=ctk.CTkFont(size=13)
-        ).pack(side="left", padx=(0, 10))
-        
-        # DateEntry (จาก tkcalendar)
-        self.date_picker = DateEntry(
-            self.date_selector_frame,
-            width=15,
-            background='#4CAF50',
-            foreground='white',
-            borderwidth=2,
-            date_pattern='dd/mm/yyyy',
-            mindate=datetime(2024, 1, 1),  # เริ่มร้าน 1 ม.ค. 2567
-            maxdate=datetime.now(),
-            font=('Arial', 11)
         )
-        self.date_picker.pack(side="left", padx=(0, 10))
-        self.date_picker.bind("<<DateEntrySelected>>", lambda e: self.on_date_selected())
-        
-        ctk.CTkButton(
-            self.date_selector_frame,
-            text="วันนี้",
-            width=80,
-            command=self.set_today,
-            fg_color="#2196F3",
-            hover_color="#42A5F5"
-        ).pack(side="left", padx=5)
+        btn_users.pack(side="left", padx=5)
     
-    def create_monthly_selector(self):
-        """สร้าง Dropdown สำหรับเลือกเดือน/ปี"""
-        ctk.CTkLabel(
-            self.date_selector_frame,
-            text="เลือกเดือน:",
-            font=ctk.CTkFont(size=13)
-        ).pack(side="left", padx=(0, 10))
-        
-        # Dropdown เดือน
-        months_th = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-                     "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
-        
-        current_month_idx = datetime.now().month - 1
-        self.month_var = ctk.StringVar(value=months_th[current_month_idx])
-        
-        month_menu = ctk.CTkOptionMenu(
-            self.date_selector_frame,
-            values=months_th,
-            variable=self.month_var,
-            command=lambda _: self.on_month_selected(),
-            width=120,
-            fg_color="#4CAF50",
-            button_color="#66BB6A",
-            button_hover_color="#81C784"
-        )
-        month_menu.pack(side="left", padx=(0, 10))
-        
-        # Dropdown ปี (2024-ปีปัจจุบัน)
-        current_year = datetime.now().year
-        years = [str(y) for y in range(2024, current_year + 1)]
-        
-        self.year_var = ctk.StringVar(value=str(current_year))
-        
-        year_menu = ctk.CTkOptionMenu(
-            self.date_selector_frame,
-            values=years,
-            variable=self.year_var,
-            command=lambda _: self.on_month_selected(),
-            width=100,
-            fg_color="#4CAF50",
-            button_color="#66BB6A",
-            button_hover_color="#81C784"
-        )
-        year_menu.pack(side="left", padx=(0, 10))
-        
-        ctk.CTkButton(
-            self.date_selector_frame,
-            text="เดือนนี้",
-            width=100,
-            command=self.set_current_month,
-            fg_color="#2196F3",
-            hover_color="#42A5F5"
-        ).pack(side="left", padx=5)
     
-    def create_yearly_selector(self):
-        """สร้าง Dropdown สำหรับเลือกปี"""
-        ctk.CTkLabel(
-            self.date_selector_frame,
-            text="เลือกปี:",
-            font=ctk.CTkFont(size=13)
-        ).pack(side="left", padx=(0, 10))
-        
-        # Dropdown ปี
-        current_year = datetime.now().year
-        years = [str(y) for y in range(2024, current_year + 1)]
-        
-        self.year_select_var = ctk.StringVar(value=str(current_year))
-        
-        year_menu = ctk.CTkOptionMenu(
-            self.date_selector_frame,
-            values=years,
-            variable=self.year_select_var,
-            command=lambda _: self.on_year_selected(),
-            width=120,
-            fg_color="#4CAF50",
-            button_color="#66BB6A",
-            button_hover_color="#81C784"
-        )
-        year_menu.pack(side="left", padx=(0, 10))
-        
-        ctk.CTkButton(
-            self.date_selector_frame,
-            text="ปีนี้",
-            width=80,
-            command=self.set_current_year,
-            fg_color="#2196F3",
-            hover_color="#42A5F5"
-        ).pack(side="left", padx=5)
+    # ฟังก์ชันไปหน้าต่างๆ
+    def go_to_home(self):
+        self.main_app.navigate_to('HomeWindow')
     
-    def on_period_change(self, value):
-        """เมื่อเปลี่ยนประเภทช่วงเวลา"""
-        # value ที่ได้คือ "รายวัน", "รายเดือน", "รายปี" จาก Segmented Button
-        self.create_date_selector()
-        self.update_sales_display()
+    def go_to_products(self):
+        self.main_app.navigate_to('AdminWindow')
     
-    def on_date_selected(self):
-        """เมื่อเลือกวันที่"""
-        self.selected_date = self.date_picker.get_date()
-        self.update_sales_display()
+    def go_to_orders(self):
+        self.main_app.navigate_to('AdminOrdersWindow')
     
-    def on_month_selected(self):
-        """เมื่อเลือกเดือน"""
-        months_th = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-                     "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
-        self.selected_month = months_th.index(self.month_var.get()) + 1
-        self.selected_year = int(self.year_var.get())
-        self.update_sales_display()
+    def go_to_sales_history(self):
+        self.main_app.navigate_to('SalesHistoryWindow')
     
-    def on_year_selected(self):
-        """เมื่อเลือกปี"""
-        self.selected_year = int(self.year_select_var.get())
-        self.update_sales_display()
+    def go_to_users(self):
+        self.main_app.navigate_to('AdminUsersWindow')
     
-    def set_today(self):
-        """ตั้งค่าเป็นวันนี้"""
-        self.date_picker.set_date(datetime.now())
-        self.selected_date = datetime.now()
-        self.update_sales_display()
     
-    def set_current_month(self):
-        """ตั้งค่าเป็นเดือนปัจจุบัน"""
-        now = datetime.now()
-        months_th = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-                     "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
-        self.month_var.set(months_th[now.month - 1])
-        self.year_var.set(str(now.year))
-        self.selected_month = now.month
-        self.selected_year = now.year
-        self.update_sales_display()
+    # ==================== พื้นที่เนื้อหาหลัก ====================
+    def create_content_area(self):
+        """สร้างพื้นที่เนื้อหาหลัก (เลื่อนได้)"""
+        scroll_area = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        scroll_area.grid(row=1, column=0, sticky="nsew", padx=30, pady=20)
+        scroll_area.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        
+        # แถวที่ 0: การ์ดสถิติรวม (4 ใบ)
+        self.create_stat_cards(scroll_area)
+        
+        # แถวที่ 1: สรุปยอดขายตามช่วงเวลา
+        self.create_sales_summary_section(scroll_area)
+        
+        # แถวที่ 2: สินค้าขายดี + สินค้าสต็อกต่ำ
+        self.create_products_section(scroll_area)
+        
+        # แถวที่ 3: คำสั่งซื้อล่าสุด
+        self.create_orders_table(scroll_area)
     
-    def set_current_year(self):
-        """ตั้งค่าเป็นปีปัจจุบัน"""
-        now = datetime.now()
-        self.year_select_var.set(str(now.year))
-        self.selected_year = now.year
-        self.update_sales_display()
     
-    def update_sales_display(self):
-        """อัปเดตการแสดงยอดขาย"""
-        # ลบการ์ดเดิมออก
-        for widget in self.cards_container.winfo_children():
-            widget.destroy()
-        
-        period = self.period_var.get()
-        
-        # ตรวจสอบว่า period เป็นภาษาไทยหรือภาษาอังกฤษ
-        if period == "รายวัน":
-            self.show_daily_sales()
-        elif period == "รายเดือน":
-            self.show_monthly_sales()
-        elif period == "รายปี":
-            self.show_yearly_sales()
-        else:
-            # กรณีที่ยังไม่ได้เลือก แสดงรายวัน
-            self.show_daily_sales()
-    
-    def show_daily_sales(self):
-        """แสดงยอดขายรายวัน"""
-        date_str = self.selected_date.strftime('%Y-%m-%d')
-        data = self.db.get_sales_by_date(date_str)
-        
-        revenue = data[0]['total_revenue'] if data else 0.0
-        orders = data[0]['order_count'] if data else 0
-        
-        date_display = self.selected_date.strftime('%d/%m/%Y')
-        
-        summary_cards = [
-            {
-                'title': f'รายได้วันที่ {date_display}',
-                'value': f"฿{revenue:,.2f}",
-                'icon': '☀️',
-                'color': '#FF9800'
-            },
-            {
-                'title': 'จำนวนคำสั่งซื้อ',
-                'value': f"{orders}",
-                'icon': '🛒',
-                'color': '#2196F3'
-            },
-            {
-                'title': 'ยอดเฉลี่ยต่อออเดอร์',
-                'value': f"฿{(revenue / orders):,.2f}" if orders > 0 else "฿0.00",
-                'icon': '📊',
-                'color': '#9C27B0'
-            }
-        ]
-        
-        for i, card_data in enumerate(summary_cards):
-            card = self.create_summary_card(self.cards_container, card_data)
-            card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
-    
-    def show_monthly_sales(self):
-        """แสดงยอดขายรายเดือน"""
-        date_str = f"{self.selected_year}-{self.selected_month:02d}"
-        data = self.db.get_sales_by_month(date_str)
-        
-        revenue = data[0]['total_revenue'] if data else 0.0
-        orders = data[0]['order_count'] if data else 0
-        
-        months_th = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-                     "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
-        month_name = months_th[self.selected_month - 1]
-        
-        summary_cards = [
-            {
-                'title': f'รายได้ {month_name} {self.selected_year}',
-                'value': f"฿{revenue:,.2f}",
-                'icon': '📅',
-                'color': '#2196F3'
-            },
-            {
-                'title': 'จำนวนคำสั่งซื้อ',
-                'value': f"{orders}",
-                'icon': '🛒',
-                'color': '#FF9800'
-            },
-            {
-                'title': 'ยอดเฉลี่ยต่อออเดอร์',
-                'value': f"฿{(revenue / orders):,.2f}" if orders > 0 else "฿0.00",
-                'icon': '📊',
-                'color': '#9C27B0'
-            }
-        ]
-        
-        for i, card_data in enumerate(summary_cards):
-            card = self.create_summary_card(self.cards_container, card_data)
-            card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
-    
-    def show_yearly_sales(self):
-        """แสดงยอดขายรายปี"""
-        data = self.db.get_sales_by_year(str(self.selected_year))
-        
-        revenue = data[0]['total_revenue'] if data else 0.0
-        orders = data[0]['order_count'] if data else 0
-        
-        summary_cards = [
-            {
-                'title': f'รายได้รวมปี {self.selected_year}',
-                'value': f"฿{revenue:,.2f}",
-                'icon': '🗓️',
-                'color': '#4CAF50'
-            },
-            {
-                'title': 'จำนวนคำสั่งซื้อ',
-                'value': f"{orders}",
-                'icon': '🛒',
-                'color': '#FF9800'
-            },
-            {
-                'title': 'ยอดเฉลี่ยต่อออเดอร์',
-                'value': f"฿{(revenue / orders):,.2f}" if orders > 0 else "฿0.00",
-                'icon': '📊',
-                'color': '#9C27B0'
-            }
-        ]
-        
-        for i, card_data in enumerate(summary_cards):
-            card = self.create_summary_card(self.cards_container, card_data)
-            card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
-
-    def create_summary_card(self, parent, data):
-        """สร้างการ์ดสรุปยอดขายแต่ละใบ"""
-        card = ctk.CTkFrame(parent, fg_color="#F8F9FA", corner_radius=10)
-        card.grid_columnconfigure(1, weight=1)
-        
-        # Icon
-        ctk.CTkLabel(
-            card, 
-            text=data['icon'], 
-            font=ctk.CTkFont(size=30)
-        ).grid(row=0, column=0, padx=(15, 5), pady=15, sticky="nsw")
-        
-        info_frame = ctk.CTkFrame(card, fg_color="transparent")
-        info_frame.grid(row=0, column=1, padx=(5, 15), pady=10, sticky="ew")
-        info_frame.grid_columnconfigure(0, weight=1)
-        
-        # Title
-        ctk.CTkLabel(
-            info_frame, 
-            text=data['title'], 
-            font=ctk.CTkFont(size=13),
-            text_color="gray50",
-            anchor="w"
-        ).pack(anchor="w")
-        
-        # Value
-        ctk.CTkLabel(
-            info_frame, 
-            text=data['value'], 
-            font=ctk.CTkFont(size=22, weight="bold"),
-            text_color=data['color'],
-            anchor="w"
-        ).pack(anchor="w")
-        
-        return card
-    # ^^^^ สิ้นสุดฟังก์ชันใหม่ ^^^^
-    
-    def create_stats_cards(self, parent):
-        """สร้างการ์ดแสดงสถิติ"""
+    # ==================== การ์ดสถิติรวม ====================
+    def create_stat_cards(self, parent):
+        """สร้างการ์ดแสดงสถิติรวม 4 ใบ"""
+        # ดึงข้อมูลจาก database
         stats = self.db.get_dashboard_stats()
         
-        cards_data = [
+        # ข้อมูลการ์ดทั้ง 4 ใบ
+        cards = [
             {
                 'title': 'ยอดขายรวม',
                 'value': f"{stats['total_orders']}",
@@ -543,184 +196,731 @@ class AdminDashboardWindow(ctk.CTkFrame):
             }
         ]
         
-        for i, card_data in enumerate(cards_data):
-            card = self.create_stat_card(parent, card_data)
+        # สร้างการ์ดทีละใบ
+        for i, card_info in enumerate(cards):
+            card = self.make_stat_card(parent, card_info)
             card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
     
-    def create_stat_card(self, parent, data):
-        """สร้างการ์ดสถิติแต่ละใบ"""
-        card = ctk.CTkFrame(parent, fg_color="white", corner_radius=15, border_width=1, border_color="#E0E0E0")
+    
+    def make_stat_card(self, parent, info):
+        """สร้างการ์ดสถิติ 1 ใบ"""
+        # กรอบการ์ด
+        card = ctk.CTkFrame(
+            parent, 
+            fg_color="white", 
+            corner_radius=15, 
+            border_width=1, 
+            border_color="#E0E0E0"
+        )
         card.grid_columnconfigure(0, weight=1)
         
-        # Icon
-        icon_label = ctk.CTkLabel(
+        # ไอคอน
+        icon = ctk.CTkLabel(
             card, 
-            text=data['icon'], 
+            text=info['icon'], 
             font=ctk.CTkFont(size=40)
         )
-        icon_label.grid(row=0, column=0, pady=(20, 10))
+        icon.grid(row=0, column=0, pady=(20, 10))
         
-        # Title
-        ctk.CTkLabel(
+        # หัวข้อ
+        title = ctk.CTkLabel(
             card, 
-            text=data['title'], 
+            text=info['title'], 
             font=ctk.CTkFont(size=14),
             text_color="gray50"
-        ).grid(row=1, column=0, pady=5)
+        )
+        title.grid(row=1, column=0, pady=5)
         
-        # Value
-        ctk.CTkLabel(
+        # ตัวเลขหลัก
+        value = ctk.CTkLabel(
             card, 
-            text=data['value'], 
+            text=info['value'], 
             font=ctk.CTkFont(size=28, weight="bold"),
-            text_color=data['color']
-        ).grid(row=2, column=0, pady=5)
+            text_color=info['color']
+        )
+        value.grid(row=2, column=0, pady=5)
         
-        # Subtitle
-        ctk.CTkLabel(
+        # คำอธิบาย
+        subtitle = ctk.CTkLabel(
             card, 
-            text=data['subtitle'], 
+            text=info['subtitle'], 
             font=ctk.CTkFont(size=12),
             text_color="gray40"
-        ).grid(row=3, column=0, pady=(5, 20))
+        )
+        subtitle.grid(row=3, column=0, pady=(5, 20))
         
         return card
     
-    def create_top_products_section(self, parent):
-        """แสดงสินค้าขายดี"""
-        section = ctk.CTkFrame(parent, fg_color="white", corner_radius=15)
-        section.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+    
+    # ==================== สรุปยอดขายตามช่วงเวลา ====================
+    def create_sales_summary_section(self, parent):
+        """สร้างส่วนแสดงยอดขายตามช่วงเวลา"""
+        # กรอบหลัก
+        section = ctk.CTkFrame(
+            parent, 
+            fg_color="white", 
+            corner_radius=15, 
+            border_width=1, 
+            border_color="#E0E0E0"
+        )
+        section.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(10, 20))
+        section.grid_columnconfigure(0, weight=1)
         
-        ctk.CTkLabel(
-            section, 
+        # ส่วนหัว
+        self.create_summary_header(section)
+        
+        # ส่วนเลือกช่วงเวลา
+        self.create_time_selector(section)
+        
+        # ส่วนแสดงการ์ดยอดขาย
+        self.sales_cards_area = ctk.CTkFrame(section, fg_color="transparent")
+        self.sales_cards_area.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 20))
+        self.sales_cards_area.grid_columnconfigure((0, 1, 2), weight=1)
+        
+        # แสดงข้อมูลเริ่มต้น (รายวัน)
+        self.update_sales_display()
+    
+    
+    def create_summary_header(self, parent):
+        """สร้างส่วนหัวของสรุปยอดขาย"""
+        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", pady=(20, 10), padx=20)
+        
+        title = ctk.CTkLabel(
+            header, 
+            text="📈 สรุปยอดขายตามช่วงเวลา", 
+            font=ctk.CTkFont(size=18, weight="bold")
+        )
+        title.pack(side="left")
+    
+    
+    def create_time_selector(self, parent):
+        """สร้างส่วนเลือกช่วงเวลา"""
+        selector_area = ctk.CTkFrame(parent, fg_color="transparent")
+        selector_area.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 15))
+        
+        # ปุ่มเลือกประเภท (รายวัน/เดือน/ปี)
+        self.period_type = ctk.StringVar(value="รายวัน")
+        
+        period_buttons = ctk.CTkSegmentedButton(
+            selector_area,
+            values=["รายวัน", "รายเดือน", "รายปี"],
+            command=self.on_period_changed,
+            variable=self.period_type,
+            fg_color="#E0E0E0",
+            selected_color="#4CAF50",
+            selected_hover_color="#66BB6A",
+            unselected_color="white",
+            unselected_hover_color="#F5F5F5"
+        )
+        period_buttons.pack(side="left", padx=(0, 20))
+        
+        # พื้นที่สำหรับ Date Picker (จะเปลี่ยนตามประเภทที่เลือก)
+        self.date_picker_area = ctk.CTkFrame(selector_area, fg_color="transparent")
+        self.date_picker_area.pack(side="left", fill="x", expand=True)
+        
+        # สร้าง Date Picker เริ่มต้น
+        self.create_date_picker()
+    
+    
+    def create_date_picker(self):
+        """สร้าง Date Picker ตามประเภทที่เลือก"""
+        # ลบ widgets เดิม
+        for widget in self.date_picker_area.winfo_children():
+            widget.destroy()
+        
+        # สร้างแบบใหม่ตามประเภท
+        period = self.period_type.get()
+        
+        if period == "รายวัน":
+            self.create_daily_picker()
+        elif period == "รายเดือน":
+            self.create_monthly_picker()
+        else:  # รายปี
+            self.create_yearly_picker()
+    
+    
+    def create_daily_picker(self):
+        """สร้าง Date Picker แบบรายวัน"""
+        # ข้อความ
+        label = ctk.CTkLabel(
+            self.date_picker_area,
+            text="เลือกวันที่:",
+            font=ctk.CTkFont(size=13)
+        )
+        label.pack(side="left", padx=(0, 10))
+        
+        # ปฏิทิน
+        self.calendar = DateEntry(
+            self.date_picker_area,
+            width=15,
+            background='#4CAF50',
+            foreground='white',
+            borderwidth=2,
+            date_pattern='dd/mm/yyyy',
+            mindate=datetime(2024, 1, 1),
+            maxdate=datetime.now(),
+            font=('Arial', 11)
+        )
+        self.calendar.pack(side="left", padx=(0, 10))
+        self.calendar.bind("<<DateEntrySelected>>", lambda e: self.on_date_picked())
+        
+        # ปุ่มวันนี้
+        btn_today = ctk.CTkButton(
+            self.date_picker_area,
+            text="วันนี้",
+            width=80,
+            command=self.set_today,
+            fg_color="#2196F3",
+            hover_color="#42A5F5"
+        )
+        btn_today.pack(side="left", padx=5)
+    
+    
+    def create_monthly_picker(self):
+        """สร้าง Picker แบบรายเดือน"""
+        # ข้อความ
+        label = ctk.CTkLabel(
+            self.date_picker_area,
+            text="เลือกเดือน:",
+            font=ctk.CTkFont(size=13)
+        )
+        label.pack(side="left", padx=(0, 10))
+        
+        # รายชื่อเดือน
+        months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+                  "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
+        
+        # Dropdown เดือน
+        current_month = datetime.now().month - 1
+        self.month_dropdown = ctk.StringVar(value=months[current_month])
+        
+        menu_month = ctk.CTkOptionMenu(
+            self.date_picker_area,
+            values=months,
+            variable=self.month_dropdown,
+            command=lambda x: self.on_month_picked(),
+            width=120,
+            fg_color="#4CAF50",
+            button_color="#66BB6A",
+            button_hover_color="#81C784"
+        )
+        menu_month.pack(side="left", padx=(0, 10))
+        
+        # Dropdown ปี
+        current_year = datetime.now().year
+        years = [str(y) for y in range(2024, current_year + 1)]
+        
+        self.year_dropdown = ctk.StringVar(value=str(current_year))
+        
+        menu_year = ctk.CTkOptionMenu(
+            self.date_picker_area,
+            values=years,
+            variable=self.year_dropdown,
+            command=lambda x: self.on_month_picked(),
+            width=100,
+            fg_color="#4CAF50",
+            button_color="#66BB6A",
+            button_hover_color="#81C784"
+        )
+        menu_year.pack(side="left", padx=(0, 10))
+        
+        # ปุ่มเดือนนี้
+        btn_this_month = ctk.CTkButton(
+            self.date_picker_area,
+            text="เดือนนี้",
+            width=100,
+            command=self.set_current_month,
+            fg_color="#2196F3",
+            hover_color="#42A5F5"
+        )
+        btn_this_month.pack(side="left", padx=5)
+    
+    
+    def create_yearly_picker(self):
+        """สร้าง Picker แบบรายปี"""
+        # ข้อความ
+        label = ctk.CTkLabel(
+            self.date_picker_area,
+            text="เลือกปี:",
+            font=ctk.CTkFont(size=13)
+        )
+        label.pack(side="left", padx=(0, 10))
+        
+        # Dropdown ปี
+        current_year = datetime.now().year
+        years = [str(y) for y in range(2024, current_year + 1)]
+        
+        self.year_select = ctk.StringVar(value=str(current_year))
+        
+        menu_year = ctk.CTkOptionMenu(
+            self.date_picker_area,
+            values=years,
+            variable=self.year_select,
+            command=lambda x: self.on_year_picked(),
+            width=120,
+            fg_color="#4CAF50",
+            button_color="#66BB6A",
+            button_hover_color="#81C784"
+        )
+        menu_year.pack(side="left", padx=(0, 10))
+        
+        # ปุ่มปีนี้
+        btn_this_year = ctk.CTkButton(
+            self.date_picker_area,
+            text="ปีนี้",
+            width=80,
+            command=self.set_current_year,
+            fg_color="#2196F3",
+            hover_color="#42A5F5"
+        )
+        btn_this_year.pack(side="left", padx=5)
+    
+    
+    # ฟังก์ชัน Callback เมื่อเปลี่ยนวันที่/เดือน/ปี
+    def on_period_changed(self, value):
+        """เมื่อเปลี่ยนประเภทช่วงเวลา"""
+        self.create_date_picker()
+        self.update_sales_display()
+    
+    def on_date_picked(self):
+        """เมื่อเลือกวันที่"""
+        self.selected_date = self.calendar.get_date()
+        self.update_sales_display()
+    
+    def on_month_picked(self):
+        """เมื่อเลือกเดือน"""
+        months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+                  "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
+        
+        month_name = self.month_dropdown.get()
+        self.selected_month = months.index(month_name) + 1
+        self.selected_year = int(self.year_dropdown.get())
+        self.update_sales_display()
+    
+    def on_year_picked(self):
+        """เมื่อเลือกปี"""
+        self.selected_year = int(self.year_select.get())
+        self.update_sales_display()
+    
+    
+    # ฟังก์ชันตั้งค่าวันที่เร็ว
+    def set_today(self):
+        """ตั้งค่าเป็นวันนี้"""
+        today = datetime.now()
+        self.calendar.set_date(today)
+        self.selected_date = today
+        self.update_sales_display()
+    
+    def set_current_month(self):
+        """ตั้งค่าเป็นเดือนปัจจุบัน"""
+        now = datetime.now()
+        months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+                  "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
+        
+        self.month_dropdown.set(months[now.month - 1])
+        self.year_dropdown.set(str(now.year))
+        self.selected_month = now.month
+        self.selected_year = now.year
+        self.update_sales_display()
+    
+    def set_current_year(self):
+        """ตั้งค่าเป็นปีปัจจุบัน"""
+        now = datetime.now()
+        self.year_select.set(str(now.year))
+        self.selected_year = now.year
+        self.update_sales_display()
+    
+    
+    def update_sales_display(self):
+        """อัปเดตการแสดงยอดขาย"""
+        # ลบการ์ดเดิม
+        for widget in self.sales_cards_area.winfo_children():
+            widget.destroy()
+        
+        # แสดงข้อมูลตามประเภทที่เลือก
+        period = self.period_type.get()
+        
+        if period == "รายวัน":
+            self.show_daily_sales()
+        elif period == "รายเดือน":
+            self.show_monthly_sales()
+        else:  # รายปี
+            self.show_yearly_sales()
+    
+    
+    def show_daily_sales(self):
+        """แสดงยอดขายรายวัน"""
+        # เปลี่ยนวันที่เป็นข้อความ
+        date_string = self.selected_date.strftime('%Y-%m-%d')
+        
+        # ดึงข้อมูลจาก database
+        data = self.db.get_sales_by_date(date_string)
+        
+        # ดึงตัวเลข
+        revenue = data[0]['total_revenue'] if data else 0.0
+        orders = data[0]['order_count'] if data else 0
+        
+        # แสดงวันที่แบบไทย
+        date_display = self.selected_date.strftime('%d/%m/%Y')
+        
+        # คำนวณยอดเฉลี่ย
+        avg = (revenue / orders) if orders > 0 else 0.0
+        
+        # ข้อมูลการ์ด 3 ใบ
+        cards = [
+            {
+                'title': f'รายได้วันที่ {date_display}',
+                'value': f"฿{revenue:,.2f}",
+                'icon': '☀️',
+                'color': '#FF9800'
+            },
+            {
+                'title': 'จำนวนคำสั่งซื้อ',
+                'value': f"{orders}",
+                'icon': '🛒',
+                'color': '#2196F3'
+            },
+            {
+                'title': 'ยอดเฉลี่ยต่อออเดอร์',
+                'value': f"฿{avg:,.2f}",
+                'icon': '📊',
+                'color': '#9C27B0'
+            }
+        ]
+        
+        # สร้างการ์ด
+        for i, card_info in enumerate(cards):
+            card = self.make_sales_card(self.sales_cards_area, card_info)
+            card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
+    
+    
+    def show_monthly_sales(self):
+        """แสดงยอดขายรายเดือน"""
+        # เปลี่ยนเป็นข้อความ
+        date_string = f"{self.selected_year}-{self.selected_month:02d}"
+        
+        # ดึงข้อมูล
+        data = self.db.get_sales_by_month(date_string)
+        
+        revenue = data[0]['total_revenue'] if data else 0.0
+        orders = data[0]['order_count'] if data else 0
+        
+        # ชื่อเดือนภาษาไทย
+        months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+                  "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
+        month_name = months[self.selected_month - 1]
+        
+        # คำนวณยอดเฉลี่ย
+        avg = (revenue / orders) if orders > 0 else 0.0
+        
+        # ข้อมูลการ์ด
+        cards = [
+            {
+                'title': f'รายได้ {month_name} {self.selected_year}',
+                'value': f"฿{revenue:,.2f}",
+                'icon': '📅',
+                'color': '#2196F3'
+            },
+            {
+                'title': 'จำนวนคำสั่งซื้อ',
+                'value': f"{orders}",
+                'icon': '🛒',
+                'color': '#FF9800'
+            },
+            {
+                'title': 'ยอดเฉลี่ยต่อออเดอร์',
+                'value': f"฿{avg:,.2f}",
+                'icon': '📊',
+                'color': '#9C27B0'
+            }
+        ]
+        
+        for i, card_info in enumerate(cards):
+            card = self.make_sales_card(self.sales_cards_area, card_info)
+            card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
+    
+    
+    def show_yearly_sales(self):
+        """แสดงยอดขายรายปี"""
+        # ดึงข้อมูล
+        data = self.db.get_sales_by_year(str(self.selected_year))
+        
+        revenue = data[0]['total_revenue'] if data else 0.0
+        orders = data[0]['order_count'] if data else 0
+        
+        # คำนวณยอดเฉลี่ย
+        avg = (revenue / orders) if orders > 0 else 0.0
+        
+        # ข้อมูลการ์ด
+        cards = [
+            {
+                'title': f'รายได้รวมปี {self.selected_year}',
+                'value': f"฿{revenue:,.2f}",
+                'icon': '🗓️',
+                'color': '#4CAF50'
+            },
+            {
+                'title': 'จำนวนคำสั่งซื้อ',
+                'value': f"{orders}",
+                'icon': '🛒',
+                'color': '#FF9800'
+            },
+            {
+                'title': 'ยอดเฉลี่ยต่อออเดอร์',
+                'value': f"฿{avg:,.2f}",
+                'icon': '📊',
+                'color': '#9C27B0'
+            }
+        ]
+        
+        for i, card_info in enumerate(cards):
+            card = self.make_sales_card(self.sales_cards_area, card_info)
+            card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
+    
+    
+    def make_sales_card(self, parent, info):
+        """สร้างการ์ดยอดขาย 1 ใบ"""
+        card = ctk.CTkFrame(parent, fg_color="#F8F9FA", corner_radius=10)
+        card.grid_columnconfigure(1, weight=1)
+        
+        # ไอคอน
+        icon = ctk.CTkLabel(
+            card, 
+            text=info['icon'], 
+            font=ctk.CTkFont(size=30)
+        )
+        icon.grid(row=0, column=0, padx=(15, 5), pady=15, sticky="nsw")
+        
+        # พื้นที่ข้อมูล
+        info_area = ctk.CTkFrame(card, fg_color="transparent")
+        info_area.grid(row=0, column=1, padx=(5, 15), pady=10, sticky="ew")
+        info_area.grid_columnconfigure(0, weight=1)
+        
+        # หัวข้อ
+        title = ctk.CTkLabel(
+            info_area, 
+            text=info['title'], 
+            font=ctk.CTkFont(size=13),
+            text_color="gray50",
+            anchor="w"
+        )
+        title.pack(anchor="w")
+        
+        # ตัวเลข
+        value = ctk.CTkLabel(
+            info_area, 
+            text=info['value'], 
+            font=ctk.CTkFont(size=22, weight="bold"),
+            text_color=info['color'],
+            anchor="w"
+        )
+        value.pack(anchor="w")
+        
+        return card
+    
+    
+    # ==================== สินค้าขายดี + สต็อกต่ำ ====================
+    def create_products_section(self, parent):
+        """สร้างส่วนแสดงสินค้าขายดีและสต็อกต่ำ"""
+        # พื้นที่วางทั้ง 2 ส่วน
+        products_area = ctk.CTkFrame(parent, fg_color="transparent")
+        products_area.grid(row=2, column=0, columnspan=4, sticky="ew", pady=20)
+        products_area.grid_columnconfigure((0, 1), weight=1)
+        
+        # ซ้าย: สินค้าขายดี
+        self.create_top_products(products_area)
+        
+        # ขวา: สินค้าสต็อกต่ำ
+        self.create_low_stock(products_area)
+    
+    
+    def create_top_products(self, parent):
+        """สร้างส่วนแสดงสินค้าขายดี"""
+        # กรอบ
+        box = ctk.CTkFrame(parent, fg_color="white", corner_radius=15)
+        box.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        
+        # หัวข้อ
+        title = ctk.CTkLabel(
+            box, 
             text="🏆 สินค้าขายดี Top 5", 
             font=ctk.CTkFont(size=18, weight="bold")
-        ).pack(pady=(20, 10), padx=20, anchor="w")
+        )
+        title.pack(pady=(20, 10), padx=20, anchor="w")
         
+        # ดึงข้อมูล Top 5
         top_products = self.db.get_top_selling_products(5)
         
+        # แสดงรายการ
         if top_products:
             for i, product in enumerate(top_products, 1):
-                item_frame = ctk.CTkFrame(section, fg_color="#F5F5F5", corner_radius=10)
-                item_frame.pack(fill="x", padx=20, pady=5)
+                # กรอบแต่ละรายการ
+                item = ctk.CTkFrame(box, fg_color="#F5F5F5", corner_radius=10)
+                item.pack(fill="x", padx=20, pady=5)
                 
-                rank_label = ctk.CTkLabel(
-                    item_frame, 
+                # อันดับ
+                rank = ctk.CTkLabel(
+                    item, 
                     text=f"#{i}", 
                     font=ctk.CTkFont(size=16, weight="bold"),
                     text_color="#FF6B9D",
                     width=40
                 )
-                rank_label.pack(side="left", padx=10, pady=10)
+                rank.pack(side="left", padx=10, pady=10)
                 
-                info_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
-                info_frame.pack(side="left", fill="x", expand=True, padx=10)
+                # ข้อมูลสินค้า
+                info = ctk.CTkFrame(item, fg_color="transparent")
+                info.pack(side="left", fill="x", expand=True, padx=10)
                 
-                ctk.CTkLabel(
-                    info_frame, 
+                # ชื่อสินค้า
+                name = ctk.CTkLabel(
+                    info, 
                     text=product['name'], 
                     font=ctk.CTkFont(size=14, weight="bold"),
                     anchor="w"
-                ).pack(anchor="w")
+                )
+                name.pack(anchor="w")
                 
-                ctk.CTkLabel(
-                    info_frame, 
+                # จำนวนขาย + รายได้
+                details = ctk.CTkLabel(
+                    info, 
                     text=f"ขายได้: {product['total_sold']} ชิ้น | รายได้: ฿{product['total_revenue']:,.2f}", 
                     font=ctk.CTkFont(size=12),
                     text_color="gray50",
                     anchor="w"
-                ).pack(anchor="w")
+                )
+                details.pack(anchor="w")
         else:
-            ctk.CTkLabel(
-                section, 
+            # ไม่มีข้อมูล
+            no_data = ctk.CTkLabel(
+                box, 
                 text="ยังไม่มีข้อมูลการขาย", 
                 text_color="gray50"
-            ).pack(pady=20)
+            )
+            no_data.pack(pady=20)
         
-        ctk.CTkLabel(section, text="").pack(pady=10)  # Spacer
+        # ช่องว่างด้านล่าง
+        spacer = ctk.CTkLabel(box, text="")
+        spacer.pack(pady=10)
     
-    def create_low_stock_section(self, parent):
-        """แสดงสินค้าที่สต็อกต่ำ"""
-        section = ctk.CTkFrame(parent, fg_color="white", corner_radius=15)
-        section.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+    
+    def create_low_stock(self, parent):
+        """สร้างส่วนแสดงสินค้าสต็อกต่ำ"""
+        # กรอบ
+        box = ctk.CTkFrame(parent, fg_color="white", corner_radius=15)
+        box.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         
-        ctk.CTkLabel(
-            section, 
+        # หัวข้อ
+        title = ctk.CTkLabel(
+            box, 
             text="⚠️ สินค้าสต็อกต่ำ", 
             font=ctk.CTkFont(size=18, weight="bold"),
             text_color="#F44336"
-        ).pack(pady=(20, 10), padx=20, anchor="w")
+        )
+        title.pack(pady=(20, 10), padx=20, anchor="w")
         
+        # ดึงข้อมูลสินค้าสต็อกต่ำ
         low_stock = self.db.get_low_stock_products(10)
         
+        # แสดงรายการ (แค่ 5 อันดับแรก)
         if low_stock:
-            for product in low_stock[:5]:  # แสดงแค่ 5 รายการแรก
-                item_frame = ctk.CTkFrame(section, fg_color="#FFEBEE", corner_radius=10)
-                item_frame.pack(fill="x", padx=20, pady=5)
+            for product in low_stock[:5]:
+                # กรอบแต่ละรายการ
+                item = ctk.CTkFrame(box, fg_color="#FFEBEE", corner_radius=10)
+                item.pack(fill="x", padx=20, pady=5)
                 
-                info_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
-                info_frame.pack(side="left", fill="x", expand=True, padx=15, pady=10)
+                # ข้อมูลสินค้า
+                info = ctk.CTkFrame(item, fg_color="transparent")
+                info.pack(side="left", fill="x", expand=True, padx=15, pady=10)
                 
-                ctk.CTkLabel(
-                    info_frame, 
+                # ชื่อสินค้า
+                name = ctk.CTkLabel(
+                    info, 
                     text=product['name'], 
                     font=ctk.CTkFont(size=14, weight="bold"),
                     anchor="w"
-                ).pack(anchor="w")
+                )
+                name.pack(anchor="w")
                 
+                # จำนวนสต็อก (สีแดงถ้าน้อยกว่า 5)
                 stock_color = "#F44336" if product['stock'] < 5 else "#FF9800"
-                ctk.CTkLabel(
-                    info_frame, 
+                
+                stock = ctk.CTkLabel(
+                    info, 
                     text=f"เหลือ: {product['stock']} ชิ้น", 
                     font=ctk.CTkFont(size=12),
                     text_color=stock_color,
                     anchor="w"
-                ).pack(anchor="w")
+                )
+                stock.pack(anchor="w")
         else:
-            ctk.CTkLabel(
-                section, 
+            # สต็อกเพียงพอทั้งหมด
+            ok = ctk.CTkLabel(
+                box, 
                 text="สต็อกสินค้าเพียงพอทั้งหมด ✓", 
                 text_color="#4CAF50"
-            ).pack(pady=20)
+            )
+            ok.pack(pady=20)
         
-        ctk.CTkLabel(section, text="").pack(pady=10)  # Spacer
+        # ช่องว่างด้านล่าง
+        spacer = ctk.CTkLabel(box, text="")
+        spacer.pack(pady=10)
     
-    def create_recent_orders_section(self, parent):
-        """แสดงคำสั่งซื้อล่าสุด"""
-        section = ctk.CTkFrame(parent, fg_color="white", corner_radius=15)
-        section.grid(row=3, column=0, columnspan=4, sticky="nsew", pady=20)
+    
+    # ==================== ตารางคำสั่งซื้อล่าสุด ====================
+    def create_orders_table(self, parent):
+        """สร้างตารางแสดงคำสั่งซื้อล่าสุด"""
+        # กรอบ
+        box = ctk.CTkFrame(parent, fg_color="white", corner_radius=15)
+        box.grid(row=3, column=0, columnspan=4, sticky="nsew", pady=20)
         
-        ctk.CTkLabel(
-            section, 
+        # หัวข้อ
+        title = ctk.CTkLabel(
+            box, 
             text="📋 คำสั่งซื้อล่าสุด", 
             font=ctk.CTkFont(size=18, weight="bold")
-        ).pack(pady=(20, 10), padx=20, anchor="w")
+        )
+        title.pack(pady=(20, 10), padx=20, anchor="w")
         
-        # Treeview
+        # ตั้งค่าสไตล์ตาราง
         style = ttk.Style()
         style.configure("Dashboard.Treeview", rowheight=35, font=('Arial', 11))
         style.configure("Dashboard.Treeview.Heading", font=('Arial', 12, 'bold'))
         
+        # คอลัมน์ตาราง
         columns = ("order_id", "customer", "amount", "status", "date")
-        tree = ttk.Treeview(section, columns=columns, show="headings", height=8, style="Dashboard.Treeview")
         
-        tree.heading("order_id", text="Order ID")
-        tree.heading("customer", text="ลูกค้า")
-        tree.heading("amount", text="ยอดเงิน")
-        tree.heading("status", text="สถานะ")
-        tree.heading("date", text="วันที่")
+        # สร้างตาราง
+        table = ttk.Treeview(
+            box, 
+            columns=columns, 
+            show="headings", 
+            height=8, 
+            style="Dashboard.Treeview"
+        )
         
-        tree.column("order_id", width=80, anchor="center")
-        tree.column("customer", width=200)
-        tree.column("amount", width=120, anchor="e")
-        tree.column("status", width=120, anchor="center")
-        tree.column("date", width=150, anchor="center")
+        # ตั้งหัวตาราง
+        table.heading("order_id", text="Order ID")
+        table.heading("customer", text="ลูกค้า")
+        table.heading("amount", text="ยอดเงิน")
+        table.heading("status", text="สถานะ")
+        table.heading("date", text="วันที่")
         
-        tree.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        # ตั้งความกว้างคอลัมน์
+        table.column("order_id", width=80, anchor="center")
+        table.column("customer", width=200)
+        table.column("amount", width=120, anchor="e")
+        table.column("status", width=120, anchor="center")
+        table.column("date", width=150, anchor="center")
         
+        table.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        
+        # ดึงข้อมูลคำสั่งซื้อ 10 รายการล่าสุด
         recent_orders = self.db.get_recent_orders(10)
         
-        status_text = {
+        # แปลงสถานะเป็นภาษาไทย
+        status_thai = {
             'pending': 'รอดำเนินการ',
             'confirmed': 'ยืนยันแล้ว',
             'shipped': 'จัดส่งแล้ว',
@@ -728,11 +928,16 @@ class AdminDashboardWindow(ctk.CTkFrame):
             'cancelled': 'ยกเลิก'
         }
         
+        # ใส่ข้อมูลลงตาราง
         for order in recent_orders:
-            tree.insert("", "end", values=(
-                f"#{order['order_id']}",
-                order['full_name'],
-                f"฿{order['total_amount']:,.2f}",
-                status_text.get(order['status'], order['status']),
-                order['created_at'][:16] if order['created_at'] else '-'
-            ))
+            # เตรียมข้อมูล
+            order_id = f"#{order['order_id']}"
+            customer = order['full_name']
+            amount = f"฿{order['total_amount']:,.2f}"
+            status = status_thai.get(order['status'], order['status'])
+            
+            # ตัดวันที่ให้เหลือ 16 ตัวอักษร
+            date = order['created_at'][:16] if order['created_at'] else '-'
+            
+            # เพิ่มแถวในตาราง
+            table.insert("", "end", values=(order_id, customer, amount, status, date))

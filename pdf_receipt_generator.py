@@ -1,9 +1,3 @@
-"""
-PDF Receipt Generator - สไตล์สลิปเซเว่น-อีเลฟเว่น
-สร้างใบเสร็จแบบสลิปความร้อน พร้อม VAT 7%
-"""
-
-from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -11,292 +5,354 @@ from reportlab.pdfbase.ttfonts import TTFont
 from datetime import datetime
 import os
 
-# --- ส่วนแก้ไขการลงทะเบียนฟอนต์ ---
+# ==================== ตั้งค่าฟอนต์ ====================
+def setup_thai_font():
+    """ตั้งค่าฟอนต์ภาษาไทย"""
+    try:
+        # หาตำแหน่งไฟล์โปรแกรม
+        program_folder = os.path.dirname(os.path.abspath(__file__))
+        
+        # สร้าง path ไปหาไฟล์ฟอนต์
+        font_regular = os.path.join(program_folder, 'fonts', 'Sarabun-Regular.ttf')
+        font_bold = os.path.join(program_folder, 'fonts', 'Sarabun-Bold.ttf')
+        
+        # ลงทะเบียนฟอนต์
+        pdfmetrics.registerFont(TTFont('ThaiFont', font_regular))
+        pdfmetrics.registerFont(TTFont('ThaiFontBold', font_bold))
+        
+        print("✓ ตั้งค่าฟอนต์ไทยสำเร็จ!")
+        return 'ThaiFont', 'ThaiFontBold'
+        
+    except Exception as e:
+        print(f"❌ ไม่พบไฟล์ฟอนต์: {e}")
+        print("⚠️  จะใช้ฟอนต์ Helvetica แทน (ภาษาไทยจะแสดงไม่ได้)")
+        return 'Helvetica', 'Helvetica-Bold'
 
-# 1. กำหนดชื่อฟอนต์ที่เราจะใช้
-FONT_NAME = 'SarabunRegular'
-FONT_BOLD = 'SarabunBold'
 
-try:
-    # 2. สร้าง path แบบเต็มไปยังโฟลเดอร์ fonts
-    #    (เราใช้ __file__ เพื่อหาว่าไฟล์ .py นี้อยู่ที่ไหน)
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    font_path_regular = os.path.join(script_dir, 'fonts', 'Sarabun-Regular.ttf')
-    font_path_bold = os.path.join(script_dir, 'fonts', 'Sarabun-Bold.ttf')
+# ตั้งค่าฟอนต์ตอนเริ่มโปรแกรม
+FONT_NORMAL, FONT_BOLD = setup_thai_font()
 
-    # 3. ลงทะเบียนฟอนต์ด้วย path แบบเต็ม
-    pdfmetrics.registerFont(TTFont(FONT_NAME, font_path_regular))
-    pdfmetrics.registerFont(TTFont(FONT_BOLD, font_path_bold))
+
+# ==================== คำนวณราคา ====================
+def calculate_prices(total_with_vat):
+    """
+    คำนวณราคาแยกส่วน
     
-    print("✓ ลงทะเบียนฟอนต์ Sarabun สำเร็จ!")
-
-except Exception as e:
-    print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    print(f"❌ เกิดข้อผิดพลาดในการลงทะเบียนฟอนต์ Sarabun: {e}")
-    print(f"ตรวจสอบว่ามีไฟล์ {font_path_regular} และ {font_path_bold} อยู่จริงหรือไม่")
-    print("!!! จะใช้ฟอนต์ Helvetica แทน (ภาษาไทยจะเป็นกล่องสี่เหลี่ยม) !!!")
-    print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    พารามิเตอร์:
+        total_with_vat: ราคารวม VAT แล้ว
     
-    # ใช้ฟอนต์ default สำรอง
-    FONT_NAME = 'Helvetica'
-    FONT_BOLD = 'Helvetica-Bold'
-# --- จบส่วนที่แก้ไข ---
+    คืนค่า:
+        (ราคาก่อน VAT, ค่า VAT)
+    """
+    price_before_vat = total_with_vat / 1.07  # ลบ VAT 7% ออก
+    vat_amount = total_with_vat - price_before_vat
+    
+    return price_before_vat, vat_amount
 
 
+# ==================== แบ่งข้อความยาว ====================
+def split_long_text(text, canvas_obj, max_width, font_size):
+    """
+    แบ่งข้อความยาวๆ ให้พอดีกับความกว้างกระดาษ
+    
+    พารามิเตอร์:
+        text: ข้อความที่จะแบ่g
+        canvas_obj: ออบเจ็กต์ canvas ของ PDF
+        max_width: ความกว้างสูงสุดที่อนุญาต
+        font_size: ขนาดตัวอักษร
+    
+    คืนค่า:
+        list ของข้อความที่แบ่งแล้ว
+    """
+    words = text.split()  # แยกคำ
+    lines = []
+    current_line = ""
+    
+    for word in words:
+        # ลองเพิ่มคำใหม่เข้าไป
+        if current_line:
+            test_line = current_line + " " + word
+        else:
+            test_line = word
+        
+        # วัดความกว้างของข้อความ
+        width = canvas_obj.stringWidth(test_line, FONT_NORMAL, font_size)
+        
+        # ถ้าพอดี ก็เก็บไว้
+        if width <= max_width:
+            current_line = test_line
+        else:
+            # ถ้ายาวเกิน ให้ขึ้นบรรทัดใหม่
+            if current_line:
+                lines.append(current_line)
+            current_line = word
+    
+    # เก็บบรรทัดสุดท้าย
+    if current_line:
+        lines.append(current_line)
+    
+    return lines
+
+
+# ==================== สร้าง PDF ====================
 def generate_receipt_pdf(order_id, db):
     """
-    สร้างใบเสร็จ PDF แบบสลิปเซเว่น
+    ฟังก์ชันหลักในการสร้างใบเสร็จ PDF
     
-    Args:
-        order_id: รหัสคำสั่งซื้อ
-        db: database object
+    พารามิเตอร์:
+        order_id: เลขที่คำสั่งซื้อ
+        db: ออบเจ็กต์ database
     
-    Returns:
-        str: path ของไฟล์ PDF ที่สร้าง หรือ None ถ้าสร้างไม่สำเร็จ
+    คืนค่า:
+        path ของไฟล์ PDF หรือ None ถ้าสร้างไม่สำเร็จ
     """
     
-    # ดึงข้อมูล Order
-    order_details = db.get_order_details(order_id)
-    if not order_details:
-        print(f"ไม่พบข้อมูล Order ID: {order_id}")
+    # ===== 1. ดึงข้อมูลจาก Database =====
+    order_data = db.get_order_details(order_id)
+    if not order_data:
+        print(f"❌ ไม่พบคำสั่งซื้อเลขที่: {order_id}")
         return None
     
-    # สร้างโฟลเดอร์เก็บ PDF
-    output_folder = "receipts_pdf"
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+    # ===== 2. สร้างโฟลเดอร์เก็บไฟล์ =====
+    pdf_folder = "receipts_pdf"
+    if not os.path.exists(pdf_folder):
+        os.makedirs(pdf_folder)
     
-    # ชื่อไฟล์
+    # สร้างชื่อไฟล์
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     pdf_filename = f"receipt_{order_id}_{timestamp}.pdf"
-    pdf_path = os.path.join(output_folder, pdf_filename)
+    pdf_path = os.path.join(pdf_folder, pdf_filename)
     
-    # ขนาดกระดาษสลิป (80mm x 297mm - ยาวตามความต้องการ)
-    slip_width = 80 * mm
-    slip_height = 297 * mm
+    # ===== 3. กำหนดขนาดกระดาษ =====
+    paper_width = 80 * mm   # กว้าง 80mm (กระดาษสลิป)
+    paper_height = 297 * mm # สูง 297mm
     
-    # สร้าง Canvas
-    c = canvas.Canvas(pdf_path, pagesize=(slip_width, slip_height))
+    # สร้าง Canvas สำหรับวาด PDF
+    c = canvas.Canvas(pdf_path, pagesize=(paper_width, paper_height))
     
-    # ตำแหน่ง Y เริ่มต้น (จากบนลงล่าง)
-    y_position = slip_height - 10 * mm
-    left_margin = 5 * mm
-    line_height = 4 * mm
+    # ===== 4. กำหนดตำแหน่งเริ่มต้น =====
+    y = paper_height - 10 * mm  # เริ่มจากบน ห่างขอบ 10mm
+    margin_left = 5 * mm         # ขอบซ้าย
+    line_space = 4 * mm          # ระยะห่างระหว่างบรรทัด
     
-    # ===== ส่วนหัว =====
-    # โลโก้ร้าน (ใช้ตัวอักษรแทน)
+    
+    # ========================================
+    # ส่วนที่ 1: หัวร้าน
+    # ========================================
+    
+    # ชื่อร้าน (ตัวใหญ่ตัวหนา)
     c.setFont(FONT_BOLD, 20)
-    c.drawCentredString(slip_width / 2, y_position, "DOLLIE SHOP")
-    y_position -= line_height * 1.2
+    c.drawCentredString(paper_width / 2, y, "DOLLIE SHOP")
+    y -= line_space * 1.2
     
-    c.setFont(FONT_NAME, 10)
-    c.drawCentredString(slip_width / 2, y_position, "ร้านขายตุ๊กตาน่ารัก")
-    y_position -= line_height
+    # คำโปรย
+    c.setFont(FONT_NORMAL, 10)
+    c.drawCentredString(paper_width / 2, y, "ร้านขายตุ๊กตาน่ารัก")
+    y -= line_space
     
     # ข้อมูลร้าน
-    c.setFont(FONT_NAME, 8)
-    store_info = [
+    c.setFont(FONT_NORMAL, 8)
+    store_lines = [
         "123 ถนนสุขุมวิท แขวงคลองเตย",
         "เขตคลองเตย กรุงเทพฯ 10110",
         "โทร: 02-xxx-xxxx",
         "TAX ID: x-xxxx-xxxxx-xx-x"
     ]
     
-    for info in store_info:
-        c.drawCentredString(slip_width / 2, y_position, info)
-        y_position -= line_height * 0.8
+    for line in store_lines:
+        c.drawCentredString(paper_width / 2, y, line)
+        y -= line_space * 0.8
     
     # เส้นคั่น
-    y_position -= line_height * 0.5
-    c.line(left_margin, y_position, slip_width - left_margin, y_position)
-    y_position -= line_height
+    y -= line_space * 0.5
+    c.line(margin_left, y, paper_width - margin_left, y)
+    y -= line_space
     
-    # ===== ข้อมูลใบเสร็จ =====
+    
+    # ========================================
+    # ส่วนที่ 2: ข้อมูลใบเสร็จ
+    # ========================================
+    
+    # หัวข้อ
     c.setFont(FONT_BOLD, 10)
-    c.drawCentredString(slip_width / 2, y_position, "ใบเสร็จรับเงิน / RECEIPT")
-    y_position -= line_height * 1.2
+    c.drawCentredString(paper_width / 2, y, "ใบเสร็จรับเงิน / RECEIPT")
+    y -= line_space * 1.2
     
     # เลขที่ใบเสร็จ
-    c.setFont(FONT_NAME, 9)
-    receipt_no = f"เลขที่: #{order_details['order_id']}"
-    c.drawString(left_margin, y_position, receipt_no)
-    y_position -= line_height
+    c.setFont(FONT_NORMAL, 9)
+    c.drawString(margin_left, y, f"เลขที่: #{order_data['order_id']}")
+    y -= line_space
     
-    # วันที่-เวลา
-    order_date = order_details.get('created_at', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    # วันที่
+    order_date = order_data.get('created_at', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     if len(order_date) > 19:
-        order_date = order_date[:19]
-    c.drawString(left_margin, y_position, f"วันที่: {order_date}")
-    y_position -= line_height
+        order_date = order_date[:19]  # ตัดให้เหลือ 19 ตัวอักษร
+    c.drawString(margin_left, y, f"วันที่: {order_date}")
+    y -= line_space
     
-    # ลูกค้า
-    customer_name = order_details.get('full_name', 'ลูกค้าทั่วไป')
-    c.drawString(left_margin, y_position, f"ลูกค้า: {customer_name}")
-    y_position -= line_height
+    # ชื่อลูกค้า
+    customer = order_data.get('full_name', 'ลูกค้าทั่วไป')
+    c.drawString(margin_left, y, f"ลูกค้า: {customer}")
+    y -= line_space
     
-    # การชำระเงิน
-    payment_method = order_details.get('payment_method', '-')
-    c.drawString(left_margin, y_position, f"ชำระโดย: {payment_method}")
-    y_position -= line_height * 1.5
+    # วิธีชำระเงิน
+    payment = order_data.get('payment_method', '-')
+    c.drawString(margin_left, y, f"ชำระโดย: {payment}")
+    y -= line_space * 1.5
     
     # เส้นคั่น
-    c.line(left_margin, y_position, slip_width - left_margin, y_position)
-    y_position -= line_height
+    c.line(margin_left, y, paper_width - margin_left, y)
+    y -= line_space
     
-    # ===== รายการสินค้า =====
+    
+    # ========================================
+    # ส่วนที่ 3: รายการสินค้า
+    # ========================================
+    
     c.setFont(FONT_BOLD, 9)
-    c.drawString(left_margin, y_position, "รายการสินค้า")
-    y_position -= line_height * 1.2
+    c.drawString(margin_left, y, "รายการสินค้า")
+    y -= line_space * 1.2
     
-    # Parse รายการสินค้า
-    items_string = order_details.get('items', '')
-    items_list = []
-    subtotal = 0.0
+    # ดึงข้อมูลรายการสินค้า
+    items_text = order_data.get('items', '')
+    items = []
     
-    if items_string:
-        item_strings = items_string.split(', ')
-        c.setFont(FONT_NAME, 8)
+    if items_text:
+        # แยกรายการสินค้า (คั่นด้วย ", ")
+        item_list = items_text.split(', ')
         
-        for item_str in item_strings:
-            parts = item_str.rsplit(' x', 1)
+        for item_text in item_list:
+            # แยกชื่อสินค้าและจำนวน (คั่นด้วย " x")
+            parts = item_text.rsplit(' x', 1)
             if len(parts) == 2:
-                item_name = parts[0]
+                name = parts[0]
                 quantity = int(parts[1])
             else:
-                item_name = item_str
+                name = item_text
                 quantity = 1
             
-            # คำนวณราคา (ในระบบจริงควรดึงจาก database)
-            # ที่นี่เราจะคำนวณจาก total_amount แบ่งเฉลี่ย
-            items_list.append({'name': item_name, 'qty': quantity})
+            items.append({'name': name, 'qty': quantity})
     
     # คำนวณราคา
-    total_with_vat = float(order_details.get('total_amount', 0))
-    subtotal = total_with_vat / 1.07  # ถอด VAT 7%
-    vat_amount = total_with_vat - subtotal
+    total = float(order_data.get('total_amount', 0))
+    price_before_vat, vat = calculate_prices(total)
     
     # ถ้ามีหลายรายการ แบ่งราคาเฉลี่ย
-    if items_list:
-        price_per_item = subtotal / len(items_list)
+    c.setFont(FONT_NORMAL, 8)
+    if items:
+        price_per_item = price_before_vat / len(items)
         
-        for item in items_list:
+        for item in items:
             item_total = price_per_item * item['qty']
             
-            # แสดงชื่อสินค้า
-            c.drawString(left_margin, y_position, f"{item['name']}")
-            y_position -= line_height * 0.9
+            # บรรทัดที่ 1: ชื่อสินค้า
+            c.drawString(margin_left, y, item['name'])
+            y -= line_space * 0.9
             
-            # แสดงจำนวนและราคา
-            qty_price_text = f"  {item['qty']} x {price_per_item:.2f}"
-            c.drawString(left_margin + 3*mm, y_position, qty_price_text)
-            c.drawRightString(slip_width - left_margin, y_position, f"{item_total:.2f}")
-            y_position -= line_height * 1.2
+            # บรรทัดที่ 2: จำนวน x ราคา = ราคารวม
+            qty_text = f"  {item['qty']} x {price_per_item:.2f}"
+            c.drawString(margin_left + 3*mm, y, qty_text)
+            c.drawRightString(paper_width - margin_left, y, f"{item_total:.2f}")
+            y -= line_space * 1.2
     
     # เส้นคั่น
-    y_position -= line_height * 0.5
-    c.line(left_margin, y_position, slip_width - left_margin, y_position)
-    y_position -= line_height
+    y -= line_space * 0.5
+    c.line(margin_left, y, paper_width - margin_left, y)
+    y -= line_space
     
-    # ===== สรุปยอดเงิน =====
-    c.setFont(FONT_NAME, 9)
     
-    # ยอดรวมสินค้า (ก่อน VAT)
-    c.drawString(left_margin, y_position, "ยอดรวม (Subtotal)")
-    c.drawRightString(slip_width - left_margin, y_position, f"{subtotal:.2f}")
-    y_position -= line_height
+    # ========================================
+    # ส่วนที่ 4: สรุปยอดเงิน
+    # ========================================
+    
+    c.setFont(FONT_NORMAL, 9)
+    
+    # ยอดรวม (ก่อน VAT)
+    c.drawString(margin_left, y, "ยอดรวม (Subtotal)")
+    c.drawRightString(paper_width - margin_left, y, f"{price_before_vat:.2f}")
+    y -= line_space
     
     # VAT 7%
-    c.drawString(left_margin, y_position, "VAT 7%")
-    c.drawRightString(slip_width - left_margin, y_position, f"{vat_amount:.2f}")
-    y_position -= line_height * 1.2
+    c.drawString(margin_left, y, "VAT 7%")
+    c.drawRightString(paper_width - margin_left, y, f"{vat:.2f}")
+    y -= line_space * 1.2
     
     # เส้นคั่นหนา
     c.setLineWidth(2)
-    c.line(left_margin, y_position, slip_width - left_margin, y_position)
+    c.line(margin_left, y, paper_width - margin_left, y)
     c.setLineWidth(1)
-    y_position -= line_height
+    y -= line_space
     
-    # ยอดรวมทั้งสิ้น
+    # ยอดรวมทั้งสิ้น (ตัวใหญ่ตัวหนา)
     c.setFont(FONT_BOLD, 12)
-    c.drawString(left_margin, y_position, "ยอดรวมทั้งสิ้น")
-    c.drawRightString(slip_width - left_margin, y_position, f"{total_with_vat:.2f}")
-    y_position -= line_height * 1.5
+    c.drawString(margin_left, y, "ยอดรวมทั้งสิ้น")
+    c.drawRightString(paper_width - margin_left, y, f"{total:.2f}")
+    y -= line_space * 1.5
     
     # เส้นคั่น
     c.setLineWidth(1)
-    c.line(left_margin, y_position, slip_width - left_margin, y_position)
-    y_position -= line_height
+    c.line(margin_left, y, paper_width - margin_left, y)
+    y -= line_space
     
-    # ===== ข้อมูลเพิ่มเติม =====
-    c.setFont(FONT_NAME, 8)
     
-    # สถานะ
-    status_map = {
+    # ========================================
+    # ส่วนที่ 5: ข้อมูลเพิ่มเติม
+    # ========================================
+    
+    c.setFont(FONT_NORMAL, 8)
+    
+    # สถานะคำสั่งซื้อ
+    status_thai = {
         'pending': 'รอดำเนินการ',
         'confirmed': 'ยืนยันแล้ว',
         'shipped': 'กำลังจัดส่ง',
         'delivered': 'จัดส่งสำเร็จ',
         'cancelled': 'ยกเลิก'
     }
-    status = status_map.get(order_details.get('status', 'pending'), 'รอดำเนินการ')
-    c.drawString(left_margin, y_position, f"สถานะ: {status}")
-    y_position -= line_height * 1.2
+    status = order_data.get('status', 'pending')
+    status_text = status_thai.get(status, 'รอดำเนินการ')
+    c.drawString(margin_left, y, f"สถานะ: {status_text}")
+    y -= line_space * 1.2
     
     # ที่อยู่จัดส่ง
-    shipping_address = order_details.get('shipping_address')
-    if shipping_address:
+    address = order_data.get('shipping_address')
+    if address:
         c.setFont(FONT_BOLD, 8)
-        c.drawString(left_margin, y_position, "ที่อยู่จัดส่ง:")
-        y_position -= line_height * 0.9
+        c.drawString(margin_left, y, "ที่อยู่จัดส่ง:")
+        y -= line_space * 0.9
         
-        c.setFont(FONT_NAME, 7)
         # แบ่งที่อยู่ยาวๆ เป็นหลายบรรทัด
-        max_width = slip_width - (2 * left_margin)
-        address_lines = wrap_text(shipping_address, c, max_width, 7)
+        c.setFont(FONT_NORMAL, 7)
+        max_width = paper_width - (2 * margin_left)
+        address_lines = split_long_text(address, c, max_width, 7)
+        
         for addr_line in address_lines:
-            c.drawString(left_margin, y_position, addr_line)
-            y_position -= line_height * 0.8
+            c.drawString(margin_left, y, addr_line)
+            y -= line_space * 0.8
     
-    y_position -= line_height
+    y -= line_space
     
-    # ===== ส่วนท้าย =====
-    c.setFont(FONT_NAME, 8)
-    c.drawCentredString(slip_width / 2, y_position, "*** ขอบคุณที่ใช้บริการ ***")
-    y_position -= line_height
-    c.drawCentredString(slip_width / 2, y_position, "www.dollieshop.com")
-    y_position -= line_height * 1.5
     
-    # บาร์โค้ดจำลอง (ใช้เส้นแทน)
-    c.setFont(FONT_NAME, 6)
-    c.drawCentredString(slip_width / 2, y_position, "| || ||| || | ||| | || ||| |")
-    y_position -= line_height * 0.7
-    c.drawCentredString(slip_width / 2, y_position, f"*{order_id:08d}*")
+    # ========================================
+    # ส่วนที่ 6: ท้ายใบเสร็จ
+    # ========================================
     
-    # บันทึก PDF
+    c.setFont(FONT_NORMAL, 8)
+    c.drawCentredString(paper_width / 2, y, "*** ขอบคุณที่ใช้บริการ ***")
+    y -= line_space
+    
+    c.drawCentredString(paper_width / 2, y, "www.dollieshop.com")
+    y -= line_space * 1.5
+    
+    # บาร์โค้ดจำลอง
+    c.setFont(FONT_NORMAL, 6)
+    c.drawCentredString(paper_width / 2, y, "| || ||| || | ||| | || ||| |")
+    y -= line_space * 0.7
+    c.drawCentredString(paper_width / 2, y, f"*{order_id:08d}*")
+    
+    
+    # ===== 5. บันทึกไฟล์ =====
     c.save()
     
-    print(f"สร้าง PDF สำเร็จ: {pdf_path}")
+    print(f"✓ สร้างใบเสร็จสำเร็จ: {pdf_path}")
     return pdf_path
-
-
-def wrap_text(text, canvas_obj, max_width, font_size):
-    """แบ่งข้อความยาวเป็นหลายบรรทัด"""
-    words = text.split()
-    lines = []
-    current_line = ""
-    
-    for word in words:
-        test_line = current_line + " " + word if current_line else word
-        text_width = canvas_obj.stringWidth(test_line, FONT_NAME, font_size)
-        
-        if text_width <= max_width:
-            current_line = test_line
-        else:
-            if current_line:
-                lines.append(current_line)
-            current_line = word
-    
-    if current_line:
-        lines.append(current_line)
-    
-    return lines

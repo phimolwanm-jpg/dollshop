@@ -72,7 +72,6 @@ class Database:
             ''')
             
             # ตารางคำสั่งซื้อ
-            # หมายเหตุ: created_at ที่นี่จะเก็บเป็น UTC (GMT+0) โดย DEFAULT
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS orders (
                     order_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,7 +132,7 @@ class Database:
         finally:
             self.close()
 
-    # ========== ฟังก์ชันจัดการผู้ใช้ (ไม่มีการแก้ไข) ==========
+    # ========== ฟังก์ชันจัดการผู้ใช้ ==========
     
     def authenticate_user(self, username, password):
         """ตรวจสอบการเข้าสู่ระบบ"""
@@ -230,7 +229,7 @@ class Database:
         finally:
             self.close()
 
-    # ========== ฟังก์ชันจัดการสินค้า (ไม่มีการแก้ไข) ==========
+    # ========== ฟังก์ชันจัดการสินค้า ==========
     
     def get_all_products(self, category=None, search_term=None, limit=None):
         """ดึงข้อมูลสินค้าทั้งหมด"""
@@ -334,7 +333,7 @@ class Database:
         finally:
             self.close()
 
-    # ========== ฟังก์ชันอื่นๆ (ไม่มีการแก้ไข) ==========
+    # ========== ฟังก์ชันอื่นๆ ==========
     
     def get_categories(self):
         """ดึงหมวดหมู่สินค้าทั้งหมด"""
@@ -352,12 +351,10 @@ class Database:
         finally:
             self.close()
 
-    # ========== ฟังก์ชันจัดการ Order (มีการแก้ไขเวลา) ==========
-    
     def create_order(self, user_id, total_amount, items, payment_method, 
                      shipping_address, slip_image_filename=None,
                      buyer_name=None, buyer_phone=None, buyer_address=None):
-        """สร้างคำสั่งซื้อใหม่ (เวลาจะถูกบันทึกเป็น UTC อัตโนมัติ)"""
+        """สร้างคำสั่งซื้อใหม่"""
         conn = None
         try:
             conn = sqlite3.connect(self.db_name)
@@ -411,23 +408,14 @@ class Database:
                 conn.close()
 
     def get_user_orders(self, user_id):
-        """
-        ดึงคำสั่งซื้อของผู้ใช้ (*** แก้ไข: แปลงเวลา created_at เป็น GMT+7 ***)
-        """
+        """ดึงคำสั่งซื้อของผู้ใช้"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT 
-                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
-                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url, 
-                    
-                    -- แก้ไข: แปลงเวลา UTC เป็น GMT+7 (เวลาไทย) --
-                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at, 
-                    
-                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
+                SELECT o.*, GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
                 FROM orders o 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
                 LEFT JOIN products p ON oi.product_id = p.product_id
@@ -444,24 +432,15 @@ class Database:
             self.close()
 
     def get_all_orders(self):
-        """
-        ดึงคำสั่งซื้อทั้งหมด (สำหรับ Admin) (*** แก้ไข: แปลงเวลา created_at เป็น GMT+7 ***)
-        """
+        """ดึงคำสั่งซื้อทั้งหมด (สำหรับ Admin)"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT 
-                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
-                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url, 
-                    
-                    -- แก้ไข: แปลงเวลา UTC เป็น GMT+7 (เวลาไทย) --
-                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at, 
-                    
-                    u.username, u.full_name, 
-                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
+                SELECT o.*, u.username, u.full_name, 
+                       GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
@@ -494,24 +473,15 @@ class Database:
             self.close()
 
     def get_order_details(self, order_id):
-        """
-        ดึงรายละเอียดคำสั่งซื้อ (*** แก้ไข: แปลงเวลา created_at เป็น GMT+7 ***)
-        """
+        """ดึงรายละเอียดคำสั่งซื้อ"""
         cursor = self.connect()
         if not cursor:
             return None
         
         try:
             cursor.execute('''
-                SELECT 
-                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
-                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url, 
-                    
-                    -- แก้ไข: แปลงเวลา UTC เป็น GMT+7 (เวลาไทย) --
-                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at, 
-                    
-                    u.username, u.full_name, 
-                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
+                SELECT o.*, u.username, u.full_name, 
+                       GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
@@ -548,12 +518,10 @@ class Database:
         finally:
             self.close()
 
-    # ========== ฟังก์ชันสำหรับ Dashboard และรายงาน (มีการแก้ไขเวลา) ==========
+    # ========== ฟังก์ชันสำหรับ Dashboard และรายงาน ==========
     
     def get_daily_sales_summary(self, date_str):
-        """
-        ดึงยอดขายรายวัน (*** แก้ไข: เปรียบเทียบเวลาไทย ***)
-        """
+        """ดึงยอดขายรายวัน"""
         cursor = self.connect()
         if not cursor:
             return (0, 0.0)
@@ -562,7 +530,7 @@ class Database:
             cursor.execute("""
                 SELECT COUNT(*), COALESCE(SUM(total_amount), 0)
                 FROM orders 
-                WHERE DATE(created_at, '+7 hours') = DATE(?) AND status != 'cancelled'
+                WHERE DATE(created_at) = DATE(?) AND status != 'cancelled'
             """, (date_str,))
             result = cursor.fetchone()
             total_orders = result[0] if result else 0
@@ -575,26 +543,20 @@ class Database:
             self.close()
 
     def get_orders_for_date(self, date_str):
-        """
-        ดึงรายการคำสั่งซื้อในวันที่กำหนด (*** แก้ไข: แปลงเวลา ***)
-        """
+        """ดึงรายการคำสั่งซื้อในวันที่กำหนด"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT 
-                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
-                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url,
-                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at, 
-                    u.username, u.full_name, 
-                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
+                SELECT o.*, u.username, u.full_name, 
+                       GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
                 LEFT JOIN products p ON oi.product_id = p.product_id
-                WHERE DATE(o.created_at, '+7 hours') = DATE(?) 
+                WHERE DATE(o.created_at) = DATE(?) 
                 GROUP BY o.order_id 
                 ORDER BY o.created_at DESC
             ''', (date_str,))
@@ -606,52 +568,62 @@ class Database:
         finally:
             self.close()
             
-    # vvvv ฟังก์ชันใหม่สำหรับดูรายได้รายวัน/เดือน/ปี vvvv
     def get_sales_by_period(self, period):
         """
-        ดึงข้อมูลยอดขายรวมตามช่วงเวลา (*** แก้ไข: แปลงเวลา ***)
+        ดึงข้อมูลยอดขายรวมตามช่วงเวลา
+        period สามารถเป็น: 'day', 'month', 'year'
         """
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
+            # เลือกรูปแบบวันที่ตาม period
             if period == 'day':
-                format_str = '%Y-%m-%d'
-                alias = 'sales_period'
+                date_format = '%Y-%m-%d'  # ปี-เดือน-วัน
             elif period == 'month':
-                format_str = '%Y-%m'
-                alias = 'sales_period'
+                date_format = '%Y-%m'     # ปี-เดือน
             elif period == 'year':
-                format_str = '%Y'
-                alias = 'sales_period'
+                date_format = '%Y'        # ปี
             else:
-                print("เกิดข้อผิดพลาด: period ต้องเป็น 'day', 'month' หรือ 'year'")
+                print("period ต้องเป็น 'day', 'month' หรือ 'year' เท่านั้น")
                 return []
                 
+            # สร้าง SQL query
             query = f'''
-                SELECT STRFTIME('{format_str}', created_at, '+7 hours') AS {alias},
-                       COUNT(order_id) AS total_orders,
-                       COALESCE(SUM(total_amount), 0) AS total_revenue
+                SELECT 
+                    STRFTIME('{date_format}', created_at) AS sales_period,
+                    COUNT(order_id) AS total_orders,
+                    COALESCE(SUM(total_amount), 0) AS total_revenue
                 FROM orders
                 WHERE status != 'cancelled'
-                GROUP BY {alias}
-                ORDER BY {alias} DESC
+                GROUP BY sales_period
+                ORDER BY sales_period DESC
             '''
+            
             cursor.execute(query)
             sales_data = cursor.fetchall()
-            return [dict(row) for row in sales_data]
+            
+            # แปลงข้อมูลเป็น list of dict
+            result = []
+            for row in sales_data:
+                result.append(dict(row))
+            
+            return result
+            
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาดในการดึงยอดขายตามช่วงเวลา: {e}")
+            print(f"เกิดข้อผิดพลาด: {e}")
             return []
         finally:
             self.close()
 
-    # ========== ฟังก์ชันสำหรับดูยอดขายตามวันที่เลือก (มีการแก้ไขเวลา) ==========
+    # ========== ฟังก์ชันสำหรับดูยอดขายตามวันที่เลือก (ใหม่) ==========
     
     def get_sales_by_date(self, date_str):
         """
-        ดึงยอดขายตามวันที่ที่ระบุ (*** แก้ไข: แปลงเวลา ***)
+        ดึงยอดขายตามวันที่ที่ระบุ
+        date_str ต้องอยู่ในรูปแบบ 'YYYY-MM-DD' เช่น '2024-01-15'
+        คืนค่า: [{'sale_date': '2024-01-15', 'order_count': 5, 'total_revenue': 15000.0}]
         """
         cursor = self.connect()
         if not cursor:
@@ -660,25 +632,36 @@ class Database:
         try:
             query = """
                 SELECT 
-                    DATE(created_at, '+7 hours') as sale_date,
+                    DATE(created_at) as sale_date,
                     COUNT(*) as order_count,
                     COALESCE(SUM(total_amount), 0) as total_revenue
                 FROM orders
-                WHERE DATE(created_at, '+7 hours') = DATE(?) AND status != 'cancelled'
-                GROUP BY sale_date
+                WHERE DATE(created_at) = DATE(?) 
+                  AND status != 'cancelled'
+                GROUP BY DATE(created_at)
             """
+            
             cursor.execute(query, (date_str,))
             result = cursor.fetchall()
-            return [dict(row) for row in result]
+            
+            # แปลงเป็น list of dict
+            output = []
+            for row in result:
+                output.append(dict(row))
+            
+            return output
+            
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาดในการดึงยอดขายรายวัน: {e}")
+            print(f"เกิดข้อผิดพลาด: {e}")
             return []
         finally:
             self.close()
     
     def get_sales_by_month(self, month_str):
         """
-        ดึงยอดขายตามเดือน (*** แก้ไข: แปลงเวลา ***)
+        ดึงยอดขายตามเดือน
+        month_str ต้องอยู่ในรูปแบบ 'YYYY-MM' เช่น '2024-01'
+        คืนค่า: [{'sale_month': '2024-01', 'order_count': 150, 'total_revenue': 450000.0}]
         """
         cursor = self.connect()
         if not cursor:
@@ -687,25 +670,36 @@ class Database:
         try:
             query = """
                 SELECT 
-                    STRFTIME('%Y-%m', created_at, '+7 hours') as sale_month,
+                    STRFTIME('%Y-%m', created_at) as sale_month,
                     COUNT(*) as order_count,
                     COALESCE(SUM(total_amount), 0) as total_revenue
                 FROM orders
-                WHERE STRFTIME('%Y-%m', created_at, '+7 hours') = ? AND status != 'cancelled'
-                GROUP BY sale_month
+                WHERE STRFTIME('%Y-%m', created_at) = ? 
+                  AND status != 'cancelled'
+                GROUP BY STRFTIME('%Y-%m', created_at)
             """
+            
             cursor.execute(query, (month_str,))
             result = cursor.fetchall()
-            return [dict(row) for row in result]
+            
+            # แปลงเป็น list of dict
+            output = []
+            for row in result:
+                output.append(dict(row))
+            
+            return output
+            
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาดในการดึงยอดขายรายเดือน: {e}")
+            print(f"เกิดข้อผิดพลาด: {e}")
             return []
         finally:
             self.close()
     
     def get_sales_by_year(self, year_str):
         """
-        ดึงยอดขายตามปี (*** แก้ไข: แปลงเวลา ***)
+        ดึงยอดขายตามปี
+        year_str ต้องอยู่ในรูปแบบ 'YYYY' เช่น '2024'
+        คืนค่า: [{'sale_year': '2024', 'order_count': 1800, 'total_revenue': 5400000.0}]
         """
         cursor = self.connect()
         if not cursor:
@@ -714,266 +708,30 @@ class Database:
         try:
             query = """
                 SELECT 
-                    STRFTIME('%Y', created_at, '+7 hours') as sale_year,
+                    STRFTIME('%Y', created_at) as sale_year,
                     COUNT(*) as order_count,
                     COALESCE(SUM(total_amount), 0) as total_revenue
                 FROM orders
-                WHERE STRFTIME('%Y', created_at, '+7 hours') = ? AND status != 'cancelled'
-                GROUP BY sale_year
+                WHERE STRFTIME('%Y', created_at) = ? 
+                  AND status != 'cancelled'
+                GROUP BY STRFTIME('%Y', created_at)
             """
+            
             cursor.execute(query, (year_str,))
             result = cursor.fetchall()
-            return [dict(row) for row in result]
+            
+            # แปลงเป็น list of dict
+            output = []
+            for row in result:
+                output.append(dict(row))
+            
+            return output
+            
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาดในการดึงยอดขายรายปี: {e}")
+            print(f"เกิดข้อผิดพลาด: {e}")
             return []
         finally:
             self.close()
-    
-    def get_sales_by_date_range(self, start_date, end_date):
-        """
-        ดึงยอดขายตามช่วงวันที่ (*** แก้ไข: แปลงเวลา ***)
-        """
-        cursor = self.connect()
-        if not cursor:
-            return []
-        
-        try:
-            query = """
-                SELECT 
-                    DATE(created_at, '+7 hours') as sale_date,
-                    COUNT(*) as order_count,
-                    COALESCE(SUM(total_amount), 0) as total_revenue
-                FROM orders
-                WHERE DATE(created_at, '+7 hours') BETWEEN DATE(?) AND DATE(?)
-                  AND status != 'cancelled'
-                GROUP BY sale_date
-                ORDER BY sale_date DESC
-            """
-            cursor.execute(query, (start_date, end_date))
-            result = cursor.fetchall()
-            return [dict(row) for row in result]
-        except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาดในการดึงยอดขายตามช่วงเวลา: {e}")
-            return []
-        finally:
-            self.close()
-    
-    def get_orders_by_date(self, date_str):
-        """
-        ดึงรายการคำสั่งซื้อในวันที่กำหนด (*** แก้ไข: แปลงเวลา ***)
-        """
-        cursor = self.connect()
-        if not cursor:
-            return []
-        
-        try:
-            query = '''
-                SELECT 
-                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
-                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url,
-                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at,
-                    COALESCE(u.full_name, o.buyer_name) as customer_name,
-                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
-                FROM orders o 
-                LEFT JOIN users u ON o.user_id = u.user_id
-                LEFT JOIN order_items oi ON o.order_id = oi.order_id 
-                LEFT JOIN products p ON oi.product_id = p.product_id
-                WHERE DATE(o.created_at, '+7 hours') = DATE(?)
-                GROUP BY o.order_id 
-                ORDER BY o.created_at DESC
-            '''
-            cursor.execute(query, (date_str,))
-            orders = cursor.fetchall()
-            return [dict(row) for row in orders]
-        except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาดในการดึงคำสั่งซื้อรายวัน: {e}")
-            return []
-        finally:
-            self.close()
-    
-    def get_orders_by_month(self, month_str):
-        """
-        ดึงรายการคำสั่งซื้อในเดือนที่กำหนด (*** แก้ไข: แปลงเวลา ***)
-        """
-        cursor = self.connect()
-        if not cursor:
-            return []
-        
-        try:
-            query = '''
-                SELECT 
-                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
-                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url,
-                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at,
-                    COALESCE(u.full_name, o.buyer_name) as customer_name,
-                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
-                FROM orders o 
-                LEFT JOIN users u ON o.user_id = u.user_id
-                LEFT JOIN order_items oi ON o.order_id = oi.order_id 
-                LEFT JOIN products p ON oi.product_id = p.product_id
-                WHERE STRFTIME('%Y-%m', o.created_at, '+7 hours') = ?
-                GROUP BY o.order_id 
-                ORDER BY o.created_at DESC
-            '''
-            cursor.execute(query, (month_str,))
-            orders = cursor.fetchall()
-            return [dict(row) for row in orders]
-        except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาดในการดึงคำสั่งซื้อรายเดือน: {e}")
-            return []
-        finally:
-            self.close()
-    
-    def get_orders_by_year(self, year_str):
-        """
-        ดึงรายการคำสั่งซื้อในปีที่กำหนด (*** แก้ไข: แปลงเวลา ***)
-        """
-        cursor = self.connect()
-        if not cursor:
-            return []
-        
-        try:
-            query = '''
-                SELECT 
-                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
-                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url,
-                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at,
-                    COALESCE(u.full_name, o.buyer_name) as customer_name,
-                    GROUP_CONCAT(p.name || ' x' || oi.quantity, ', ') as items
-                FROM orders o 
-                LEFT JOIN users u ON o.user_id = u.user_id
-                LEFT JOIN order_items oi ON o.order_id = oi.order_id 
-                LEFT JOIN products p ON oi.product_id = p.product_id
-                WHERE STRFTIME('%Y', o.created_at, '+7 hours') = ?
-                GROUP BY o.order_id 
-                ORDER BY o.created_at DESC
-            '''
-            cursor.execute(query, (year_str,))
-            orders = cursor.fetchall()
-            return [dict(row) for row in orders]
-        except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาดในการดึงคำสั่งซื้อรายปี: {e}")
-            return []
-        finally:
-            self.close()
-    
-    def get_top_products_by_period(self, period_type, period_value, limit=10):
-        """
-        ดึงสินค้าขายดีตามช่วงเวลา (*** แก้ไข: แปลงเวลา ***)
-        """
-        cursor = self.connect()
-        if not cursor:
-            return []
-        
-        try:
-            if period_type == 'day':
-                where_clause = "DATE(o.created_at, '+7 hours') = DATE(?)"
-            elif period_type == 'month':
-                where_clause = "STRFTIME('%Y-%m', o.created_at, '+7 hours') = ?"
-            elif period_type == 'year':
-                where_clause = "STRFTIME('%Y', o.created_at, '+7 hours') = ?"
-            else:
-                return []
-            
-            query = f'''
-                SELECT p.product_id, p.name, p.category, p.price, p.image_url,
-                       SUM(oi.quantity) as total_sold, 
-                       SUM(oi.quantity * oi.price) as total_revenue
-                FROM products p 
-                JOIN order_items oi ON p.product_id = oi.product_id
-                JOIN orders o ON oi.order_id = o.order_id 
-                WHERE o.status != 'cancelled' AND {where_clause}
-                GROUP BY p.product_id 
-                ORDER BY total_sold DESC 
-                LIMIT ?
-            '''
-            cursor.execute(query, (period_value, limit))
-            products = cursor.fetchall()
-            return [dict(row) for row in products]
-        except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาดในการดึงสินค้าขายดี: {e}")
-            return []
-        finally:
-            self.close()
-    
-    def get_sales_comparison(self):
-        """
-        เปรียบเทียบยอดขาย (*** แก้ไข: แปลงเวลา ***)
-        (ใช้ 'localtime' ซึ่งจะดึงเวลาตามเครื่องที่รัน)
-        """
-        cursor = self.connect()
-        if not cursor:
-            return {}
-        
-        try:
-            result = {}
-            
-            # วันนี้
-            cursor.execute("""
-                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
-                FROM orders
-                WHERE DATE(created_at, '+7 hours') = DATE('now', 'localtime') AND status != 'cancelled'
-            """)
-            row = cursor.fetchone()
-            result['today'] = {'orders': row[0], 'revenue': row[1]}
-            
-            # เมื่อวาน
-            cursor.execute("""
-                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
-                FROM orders
-                WHERE DATE(created_at, '+7 hours') = DATE('now', 'localtime', '-1 day') AND status != 'cancelled'
-            """)
-            row = cursor.fetchone()
-            result['yesterday'] = {'orders': row[0], 'revenue': row[1]}
-            
-            # เดือนนี้
-            cursor.execute("""
-                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
-                FROM orders
-                WHERE STRFTIME('%Y-%m', created_at, '+7 hours') = STRFTIME('%Y-%m', 'now', 'localtime') 
-                  AND status != 'cancelled'
-            """)
-            row = cursor.fetchone()
-            result['this_month'] = {'orders': row[0], 'revenue': row[1]}
-            
-            # เดือนที่แล้ว
-            cursor.execute("""
-                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
-                FROM orders
-                WHERE STRFTIME('%Y-%m', created_at, '+7 hours') = STRFTIME('%Y-%m', 'now', 'localtime', '-1 month') 
-                  AND status != 'cancelled'
-            """)
-            row = cursor.fetchone()
-            result['last_month'] = {'orders': row[0], 'revenue': row[1]}
-            
-            # ปีนี้
-            cursor.execute("""
-                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
-                FROM orders
-                WHERE STRFTIME('%Y', created_at, '+7 hours') = STRFTIME('%Y', 'now', 'localtime') 
-                  AND status != 'cancelled'
-            """)
-            row = cursor.fetchone()
-            result['this_year'] = {'orders': row[0], 'revenue': row[1]}
-            
-            # ปีที่แล้ว
-            cursor.execute("""
-                SELECT COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue
-                FROM orders
-                WHERE STRFTIME('%Y', created_at, '+7 hours') = STRFTIME('%Y', 'now', 'localtime', '-1 year') 
-                  AND status != 'cancelled'
-            """)
-            row = cursor.fetchone()
-            result['last_year'] = {'orders': row[0], 'revenue': row[1]}
-            
-            return result
-        except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาดในการเปรียบเทียบยอดขาย: {e}")
-            return {}
-        finally:
-            self.close()
-    # ^^^^ สิ้นสุดฟังก์ชันใหม่ ^^^^
 
     def get_dashboard_stats(self):
         """ดึงสถิติสำหรับ Dashboard"""
@@ -983,21 +741,27 @@ class Database:
         
         stats = {}
         try:
+            # นับจำนวนคำสั่งซื้อทั้งหมด
             cursor.execute("SELECT COUNT(*) FROM orders")
             stats['total_orders'] = cursor.fetchone()[0]
             
+            # รายได้รวม (ไม่นับที่ยกเลิก)
             cursor.execute("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status != 'cancelled'")
             stats['total_revenue'] = cursor.fetchone()[0]
             
+            # จำนวนสินค้าทั้งหมด
             cursor.execute("SELECT COUNT(*) FROM products")
             stats['total_products'] = cursor.fetchone()[0]
             
+            # สินค้าสต็อกต่ำ (น้อยกว่า 10)
             cursor.execute("SELECT COUNT(*) FROM products WHERE stock < 10")
             stats['low_stock_count'] = cursor.fetchone()[0]
             
+            # จำนวนลูกค้า
             cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'customer'")
             stats['total_customers'] = cursor.fetchone()[0]
             
+            # คำสั่งซื้อที่รอดำเนินการ
             cursor.execute("SELECT COUNT(*) FROM orders WHERE status = 'pending'")
             stats['pending_orders'] = cursor.fetchone()[0]
             
@@ -1015,16 +779,26 @@ class Database:
             return []
         
         try:
+            # ถ้าไม่ระบุ role = ดึงทั้งหมด
             query = "SELECT * FROM users"
             params = []
+            
             if role:
                 query += " WHERE role = ?"
                 params.append(role)
+            
             query += " ORDER BY user_id ASC"
             
             cursor.execute(query, params)
             users = cursor.fetchall()
-            return [dict(u) for u in users]
+            
+            # แปลงเป็น list of dict
+            result = []
+            for user in users:
+                result.append(dict(user))
+            
+            return result
+            
         except sqlite3.Error as e:
             print(f"เกิดข้อผิดพลาด: {e}")
             return []
@@ -1061,6 +835,7 @@ class Database:
         
         try:
             cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+            # ตรวจสอบว่าลบสำเร็จหรือไม่
             return cursor.rowcount > 0
         except sqlite3.Error as e:
             print(f"เกิดข้อผิดพลาด: {e}")
@@ -1075,9 +850,17 @@ class Database:
             return []
         
         try:
+            # ดึงสินค้าที่มีสต็อกน้อยกว่า threshold
             cursor.execute('SELECT * FROM products WHERE stock < ? ORDER BY stock ASC', (threshold,))
             products = cursor.fetchall()
-            return [dict(p) for p in products]
+            
+            # แปลงเป็น list of dict
+            result = []
+            for product in products:
+                result.append(dict(product))
+            
+            return result
+            
         except sqlite3.Error as e:
             print(f"เกิดข้อผิดพลาด: {e}")
             return []
@@ -1085,27 +868,28 @@ class Database:
             self.close()
 
     def get_recent_orders(self, limit=10):
-        """
-        ดึงคำสั่งซื้อล่าสุด (*** แก้ไข: แปลงเวลา ***)
-        """
+        """ดึงคำสั่งซื้อล่าสุด"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT 
-                    o.order_id, o.user_id, o.buyer_name, o.buyer_phone, o.buyer_address, 
-                    o.total_amount, o.status, o.payment_method, o.shipping_address, o.slip_image_url,
-                    STRFTIME('%Y-%m-%d %H:%M:%S', o.created_at, '+7 hours') as created_at,
-                    u.username, u.full_name 
+                SELECT o.*, u.username, u.full_name 
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id
                 ORDER BY o.created_at DESC 
                 LIMIT ?
             ''', (limit,))
             orders = cursor.fetchall()
-            return [dict(o) for o in orders]
+            
+            # แปลงเป็น list of dict
+            result = []
+            for order in orders:
+                result.append(dict(order))
+            
+            return result
+            
         except sqlite3.Error as e:
             print(f"เกิดข้อผิดพลาด: {e}")
             return []
@@ -1113,19 +897,21 @@ class Database:
             self.close()
 
     def get_top_selling_products(self, limit=5):
-        """
-        ดึงสินค้าขายดี (*** แก้ไข: แปลงเวลา ***)
-        """
+        """ดึงสินค้าขายดี"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
-            # หมายเหตุ: เราจะดึงยอดขายรวม 'ตลอดเวลา' ดังนั้น ไม่ต้องกรองเวลา
             cursor.execute('''
-                SELECT p.product_id, p.name, p.category, p.price, p.image_url,
-                       SUM(oi.quantity) as total_sold, 
-                       SUM(oi.quantity * oi.price) as total_revenue
+                SELECT 
+                    p.product_id, 
+                    p.name, 
+                    p.category, 
+                    p.price, 
+                    p.image_url,
+                    SUM(oi.quantity) as total_sold, 
+                    SUM(oi.quantity * oi.price) as total_revenue
                 FROM products p 
                 JOIN order_items oi ON p.product_id = oi.product_id
                 JOIN orders o ON oi.order_id = o.order_id 
@@ -1135,7 +921,14 @@ class Database:
                 LIMIT ?
             ''', (limit,))
             products = cursor.fetchall()
-            return [dict(p) for p in products]
+            
+            # แปลงเป็น list of dict
+            result = []
+            for product in products:
+                result.append(dict(product))
+            
+            return result
+            
         except sqlite3.Error as e:
             print(f"เกิดข้อผิดพลาด: {e}")
             return []
@@ -1143,19 +936,17 @@ class Database:
             self.close()
 
     def get_sales_by_category(self):
-        """
-Data (*** แก้ไข: แปลงเวลา ***)
-        """
+        """ดึงยอดขายแยกตามหมวดหมู่"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
-            # หมายเหตุ: เราจะดึงยอดขายรวม 'ตลอดเวลา' ดังนั้น ไม่ต้องกรองเวลา
             cursor.execute('''
-                SELECT p.category, 
-                       SUM(oi.quantity) as total_quantity, 
-                       SUM(oi.quantity * oi.price) as total_revenue
+                SELECT 
+                    p.category, 
+                    SUM(oi.quantity) as total_quantity, 
+                    SUM(oi.quantity * oi.price) as total_revenue
                 FROM products p 
                 JOIN order_items oi ON p.product_id = oi.product_id
                 JOIN orders o ON oi.order_id = o.order_id 
@@ -1164,7 +955,15 @@ Data (*** แก้ไข: แปลงเวลา ***)
                 ORDER BY total_revenue DESC
             ''')
             categories = cursor.fetchall()
-            return [dict(c) for c in categories if c['category'] is not None]
+            
+            # แปลงเป็น list of dict และกรองเฉพาะที่มี category
+            result = []
+            for cat in categories:
+                if cat['category'] is not None:
+                    result.append(dict(cat))
+            
+            return result
+            
         except sqlite3.Error as e:
             print(f"เกิดข้อผิดพลาด: {e}")
             return []
