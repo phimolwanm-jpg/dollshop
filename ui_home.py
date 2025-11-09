@@ -2,392 +2,356 @@ import customtkinter as ctk
 from tkinter import messagebox
 from models import Product
 
-
 class HomeWindow(ctk.CTkFrame):
-    """หน้าหลักของร้าน"""
-    
     def __init__(self, parent, main_app):
         super().__init__(parent, fg_color="#FFF0F5")
         self.main_app = main_app
         self.db = main_app.db
         self.session = main_app.session
         self.cart = main_app.cart
-        self.search_text = ctk.StringVar()
         
-        self.create_page()
-    
+        # --- (NEW) ตัวแปรสำหรับช่องค้นหาหน้า Home ---
+        self.home_search_var = ctk.StringVar()
+        
+        # สร้างหน้าจอ UI ทันที
+        self.setup_ui()
+
     def on_show(self):
-        """เปิดหน้านี้ - รีเฟรชทั้งหมด"""
+        """
+        ทำงานทุกครั้งที่เปิดหน้านี้: ลบของเก่า สร้าง UI ใหม่ทั้งหมด
+        เพื่อให้ Header (ชื่อ user, ปุ่ม admin) และรายการสินค้าอัปเดตเสมอ
+        """
+        # ลบ widget เก่าทั้งหมด
         for widget in self.winfo_children():
             widget.destroy()
         
-        self.search_text = ctk.StringVar()
-        self.create_page()
-    
-    def create_page(self):
-        """สร้างหน้าจอ"""
+        # --- (NEW) ล้างค่าค้นหาเก่า ---
+        self.home_search_var = ctk.StringVar()
+        
+        # สร้าง UI ใหม่
+        self.setup_ui()
+
+    def setup_ui(self):
+        # --- 1. กำหนดการขยายตัวของ Grid หลัก ---
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
+
+        # --- 2. สร้างส่วนหัว (Header) ---
+        header = ctk.CTkFrame(
+            self,
+            fg_color="#FFFFFF",
+            corner_radius=0,
+            height=70,
+            border_width=1,
+            border_color="#FFEBEE"
+        )
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 5))
         
-        self.create_top_bar()
-        self.create_content()
-    
-    # === แถบด้านบน ===
-    
-    def create_top_bar(self):
-        """สร้างแถบด้านบน"""
-        bar = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=0,
-                          height=70, border_width=1, border_color="#FFEBEE")
-        bar.grid(row=0, column=0, sticky="ew", pady=(0, 5))
-        bar.grid_propagate(False)
-        
-        # โลโก้
-        logo = ctk.CTkLabel(bar, text="🎀 Dollie Shop",
-                           font=("IBM Plex Sans Thai", 24, "bold"),
-                           text_color="#FFB6C1")
-        logo.pack(side="left", padx=30, anchor="w")
-        
-        # --- 🛠️ (ปรับแก้) ---
-        # ตรวจสอบว่าเป็น Admin หรือไม่
-        # ถ้าเป็น User -> แสดงช่องค้นหา
-        # ถ้าเป็น Admin -> ไม่แสดงช่องค้นหา (เพื่อเพิ่มที่ให้ปุ่ม)
-        
-        # (เราต้องเช็ค is_logged_in ก่อน เผื่อ session ยังไม่มี)
+        header.pack_propagate(False)
+
+
+        # --- 2.1 ใส่ Logo และชื่อร้าน (ชิดซ้าย) ---
+        shop_title_label = ctk.CTkLabel(
+            header,
+            text="🎀 Dollie Shop",
+            font=("IBM Plex Sans Thai", 24, "bold"),
+            text_color="#FFB6C1"
+        )
+        shop_title_label.pack(side="left", padx=30)
+
+        # --- 2.2 สร้าง Frame สำหรับ widget ทางขวา ---
+        right_header_frame = ctk.CTkFrame(header, fg_color="transparent")
+        right_header_frame.pack(side="right", padx=20, pady=10)
+
+        # --- (ปุ่ม "เกี่ยวกับเรา" ถูกย้ายจากตรงนี้ ไปอยู่ข้างล่าง) ---
+
+        # --- 🛠️ (ปรับแก้: จุดที่ 1 - ตรวจสอบ Admin ก่อน) ---
+        # ตรวจสอบสถานะ Admin ที่นี่ เพื่อใช้ตัดสินใจสร้างช่องค้นหา
         is_admin = self.session.is_logged_in() and self.session.is_admin()
         
+        # --- (NEW) 2.3 สร้าง Frame ค้นหา (ตรงกลาง) ---
+        
+        # --- 🛠️ (ปรับแก้: จุดที่ 2 - เพิ่ม IF) ---
+        # ถ้า 'ไม่' เป็น Admin (เป็น User หรือ Guest) -> สร้างช่องค้นหา
         if not is_admin:
-            # (สำหรับ User หรือ Guest)
-            # ช่องค้นหา
-            self.create_search(bar)
+            search_frame = ctk.CTkFrame(header, fg_color="transparent")
+            search_frame.pack(side="left", padx=20, pady=10, fill="x", expand=True) 
+            
+            search_entry = ctk.CTkEntry(
+                search_frame,
+                textvariable=self.home_search_var, # ผูกกับตัวแปร
+                placeholder_text="🔍 ค้นหาตุ๊กตาทุกหมวดหมู่...",
+                height=35,
+                corner_radius=15,
+                border_width=1,
+                border_color="#FFEBEE",
+                fg_color="#FFF0F5",
+                font=("IBM Plex Sans Thai", 14)
+            )
+            search_entry.bind("<Return>", self.on_search) 
+            search_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+            search_button = ctk.CTkButton(
+                search_frame,
+                text="ค้นหา",
+                width=80,
+                height=35,
+                corner_radius=15,
+                font=("IBM Plex Sans Thai", 14, "bold"),
+                fg_color="#FFB6C1", hover_color="#FFC0CB", text_color="white",
+                command=self.on_search
+            )
+            search_button.pack(side="left")
+        
+        # ถ้า 'ใช่' เป็น Admin -> สร้างที่ว่าง (Spacer) แทนช่องค้นหา
         else:
-            # (สำหรับ Admin)
-            # สร้าง "ที่ว่าง" (Spacer) ที่ขยายได้
-            # เพื่อดันปุ่มไปทางขวา (แทนที่ช่องค้นหา)
-            spacer = ctk.CTkFrame(bar, fg_color="transparent")
-            spacer.pack(side="left", padx=20, pady=10, fill="x", expand=True)
+            admin_spacer = ctk.CTkFrame(header, fg_color="transparent")
+            admin_spacer.pack(side="left", padx=20, pady=10, fill="x", expand=True)
         # --- (สิ้นสุดการปรับแก้) ---
 
-        # ปุ่มต่างๆ
-        self.create_buttons(bar)
-    
-    def create_search(self, parent):
-        """สร้างช่องค้นหา"""
-        search_box = ctk.CTkFrame(parent, fg_color="transparent")
-        search_box.pack(side="left", padx=20, pady=10, fill="x", expand=True)
-        
-        # ช่องพิมพ์
-        entry = ctk.CTkEntry(search_box,
-                            textvariable=self.search_text,
-                            placeholder_text="🔍 ค้นหาตุ๊กตาทุกหมวดหมู่...",
-                            height=35, corner_radius=15,
-                            border_width=1, border_color="#FFEBEE",
-                            fg_color="#FFF0F5",
-                            font=("IBM Plex Sans Thai", 14))
-        entry.bind("<Return>", self.search)
-        entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        
-        # ปุ่มค้นหา
-        btn = ctk.CTkButton(search_box, text="ค้นหา",
-                           width=80, height=35, corner_radius=15,
-                           font=("IBM Plex Sans Thai", 14, "bold"),
-                           fg_color="#FFB6C1", hover_color="#FFC0CB",
-                           text_color="white", command=self.search)
-        btn.pack(side="left")
-    
-    def create_buttons(self, parent):
-        """สร้างปุ่มด้านขวา"""
-        btn_area = ctk.CTkFrame(parent, fg_color="transparent")
-        btn_area.pack(side="right", padx=20, pady=10, anchor="e")
-        
-        if self.session.is_logged_in():
-            # แสดงชื่อ
-            name = self.session.current_user.full_name
-            welcome = ctk.CTkLabel(btn_area,
-                                  text=f"สวัสดี, {name}",
-                                  font=("IBM Plex Sans Thai", 14),
-                                  text_color="#6D4C41")
-            welcome.pack(side="left", padx=10)
+
+        # --- 2.4 แสดงข้อความต้อนรับ (ถ้า Login แล้ว) ---
+        # (โค้ดส่วนที่เหลือเหมือนเดิมทุกประการ)
+        if self.session.is_logged_in(): # เช็คว่า login หรือยัง
+            user_full_name = self.session.current_user.full_name
+            welcome_text = f"สวัสดี, {user_full_name}"
+            welcome_label = ctk.CTkLabel(
+                right_header_frame,
+                text=welcome_text,
+                font=("IBM Plex Sans Thai", 14),
+                text_color="#6D4C41"
+            )
+            welcome_label.pack(side="left", padx=10)
+
+            # --- 2.5 ตรวจสอบว่าเป็น Admin หรือไม่ ---
+            # (ตัวแปร is_admin ถูกย้ายไปข้างบนแล้ว แต่เรายังใช้ is_current_user_admin ในโค้ดเดิมได้)
+            is_current_user_admin = self.session.is_admin()
+            if is_current_user_admin:
+                admin_dashboard_btn = ctk.CTkButton(
+                    right_header_frame,
+                    text="📊 Dashboard",
+                    fg_color="#4CAF50", hover_color="#66BB6A", text_color="white",
+                    font=("IBM Plex Sans Thai", 14, "bold"),
+                    corner_radius=15, height=35,
+                    command=lambda: self.main_app.navigate_to('AdminDashboardWindow')
+                )
+                admin_dashboard_btn.pack(side="left", padx=5)
+
+                admin_orders_btn = ctk.CTkButton(
+                    right_header_frame,
+                    text="📦 คำสั่งซื้อ",
+                    fg_color="#2196F3", hover_color="#42A5F5", text_color="white",
+                    font=("IBM Plex Sans Thai", 14, "bold"),
+                    corner_radius=15, height=35,
+                    command=lambda: self.main_app.navigate_to('AdminOrdersWindow')
+                )
+                admin_orders_btn.pack(side="left", padx=5)
+
+                admin_product_btn = ctk.CTkButton(
+                    right_header_frame,
+                    text="⚙️ จัดการสินค้า",
+                    fg_color="#FF6B9D", hover_color="#FF8FB3", text_color="white",
+                    font=("IBM Plex Sans Thai", 14, "bold"),
+                    corner_radius=15, height=35,
+                    command=lambda: self.main_app.navigate_to('AdminWindow')
+                )
+                admin_product_btn.pack(side="left", padx=5)
+
+            # --- 2.6 สร้างปุ่มสำหรับผู้ใช้ทุกคน (ถ้า Login แล้ว) ---
             
-            # ถ้าเป็น Admin
-            if self.session.is_admin():
-                self.add_admin_buttons(btn_area)
-            
-            # ปุ่มผู้ใช้ทั่วไป
-            self.add_user_buttons(btn_area)
-    
-    def add_admin_buttons(self, parent):
-        """เพิ่มปุ่มสำหรับ Admin"""
-        # Dashboard
-        btn1 = ctk.CTkButton(parent, text="📊 Dashboard",
-                            fg_color="#4CAF50", hover_color="#66BB6A",
-                            text_color="white",
-                            font=("IBM Plex Sans Thai", 14, "bold"),
-                            corner_radius=15, height=35,
-                            command=self.go_dashboard)
-        btn1.pack(side="left", padx=5)
+            # --- (vVv ย้ายปุ่ม "เกี่ยวกับเรา" มาไว้ตรงนี้ vVv) ---
+            about_btn = ctk.CTkButton(
+                right_header_frame,
+                text="ℹ️ เกี่ยวกับเรา",
+                fg_color="transparent", hover_color="#FFE4E1", text_color="#6D4C41",
+                font=("IBM Plex Sans Thai", 14),
+                command=lambda: self.main_app.navigate_to('AboutWindow')
+            )
+            about_btn.pack(side="left", padx=5)
+            # --- (vVv จบส่วนที่ย้ายมา vVv) ---
+
+            profile_btn = ctk.CTkButton(
+                right_header_frame,
+                text="โปรไฟล์",
+                fg_color="transparent", hover_color="#FFE4E1", text_color="#6D4C41",
+                font=("IBM Plex Sans Thai", 14),
+                command=lambda: self.main_app.navigate_to('ProfileWindow')
+            )
+            profile_btn.pack(side="left", padx=5)
+
+            history_btn = ctk.CTkButton(
+                right_header_frame,
+                text="ประวัติการซื้อ",
+                fg_color="transparent", hover_color="#FFE4E1", text_color="#6D4C41",
+                font=("IBM Plex Sans Thai", 14),
+                command=lambda: self.main_app.navigate_to('OrderHistoryWindow')
+            )
+            history_btn.pack(side="left", padx=5)
+
+            cart_icon_image = self.main_app.load_image("cart_icon.png", size=(20, 20))
+            cart_btn = ctk.CTkButton(
+                right_header_frame,
+                text="", image=cart_icon_image, width=30,
+                fg_color="transparent", hover_color="#FFE4E1",
+                command=lambda: self.main_app.navigate_to('CartWindow')
+            )
+            cart_btn.pack(side="left", padx=5)
+
+            logout_btn = ctk.CTkButton(
+                right_header_frame,
+                text="ออกจากระบบ",
+                width=100, corner_radius=15,
+                font=("IBM Plex Sans Thai", 14, "bold"),
+                fg_color="#FFB6C1", hover_color="#FFC0CB", text_color="white",
+                command=self.main_app.on_logout
+            )
+            logout_btn.pack(side="left", padx=10)
         
-        # คำสั่งซื้อ
-        btn2 = ctk.CTkButton(parent, text="📦 คำสั่งซื้อ",
-                            fg_color="#2196F3", hover_color="#42A5F5",
-                            text_color="white",
-                            font=("IBM Plex Sans Thai", 14, "bold"),
-                            corner_radius=15, height=35,
-                            command=self.go_orders)
-        btn2.pack(side="left", padx=5)
-        
-        # จัดการสินค้า
-        btn3 = ctk.CTkButton(parent, text="⚙️ จัดการสินค้า",
-                            fg_color="#FF6B9D", hover_color="#FF8FB3",
-                            text_color="white",
-                            font=("IBM Plex Sans Thai", 14, "bold"),
-                            corner_radius=15, height=35,
-                            command=self.go_products)
-        btn3.pack(side="left", padx=5)
-    
-    def add_user_buttons(self, parent):
-        """เพิ่มปุ่มสำหรับผู้ใช้"""
-        # เกี่ยวกับเรา
-        btn_about = ctk.CTkButton(parent, text="เกี่ยวกับเรา",
-                                 fg_color="transparent", 
-                                 hover_color="#FFE4E1",
-                                 text_color="#6D4C41",
-                                 font=("IBM Plex Sans Thai", 14),
-                                 command=self.go_about)
-        btn_about.pack(side="left", padx=5)
-        
-        # โปรไฟล์
-        btn_profile = ctk.CTkButton(parent, text="โปรไฟล์",
-                                   fg_color="transparent", 
-                                   hover_color="#FFE4E1",
-                                   text_color="#6D4C41",
-                                   font=("IBM Plex Sans Thai", 14),
-                                   command=self.go_profile)
-        btn_profile.pack(side="left", padx=5)
-        
-        # ประวัติการซื้อ
-        btn_history = ctk.CTkButton(parent, text="ประวัติการซื้อ",
-                                   fg_color="transparent", 
-                                   hover_color="#FFE4E1",
-                                   text_color="#6D4C41",
-                                   font=("IBM Plex Sans Thai", 14),
-                                   command=self.go_history)
-        btn_history.pack(side="left", padx=5)
-        
-        # ปุ่มตะกร้า (ไอคอน)
-        cart_icon = self.main_app.load_image("cart_icon.png", size=(20, 20))
-        btn_cart = ctk.CTkButton(parent, 
-                                text="",
-                                image=cart_icon,
-                                width=30,
-                                fg_color="transparent",
-                                hover_color="#FFE4E1",
-                                command=self.go_cart)
-        btn_cart.pack(side="left", padx=5)
-        
-        # ปุ่มออกจากระบบ
-        btn_logout = ctk.CTkButton(parent, 
-                                  text="ออกจากระบบ",
-                                  width=100,
-                                  corner_radius=15,
-                                  font=("IBM Plex Sans Thai", 14, "bold"),
-                                  fg_color="#FFB6C1",
-                                  hover_color="#FFC0CB",
-                                  text_color="white",
-                                  command=self.main_app.on_logout)
-        btn_logout.pack(side="left", padx=10)
-    
-    # === เนื้อหาหลัก ===
-    
-    def create_content(self):
-        """สร้างเนื้อหาหลัก"""
-        scroll = ctk.CTkScrollableFrame(self, fg_color="transparent",
-                                        scrollbar_button_color="#FFB6C1")
-        scroll.grid(row=1, column=0, sticky="nsew", padx=30, pady=0)
-        scroll.grid_columnconfigure(0, weight=1)
-        
-        self.create_banner(scroll)
-        self.create_categories(scroll)
-        self.create_products(scroll)
-        self.create_footer(scroll)
-    
-    def create_banner(self, parent):
-        """สร้างแบนเนอร์"""
-        img = self.main_app.load_image("banner.png", size=(2100, 250))
-        banner = ctk.CTkLabel(parent, text="", image=img,
-                             corner_radius=20)
-        banner.grid(row=0, column=0, sticky="ew", pady=(10, 20))
-    
-    def create_categories(self, parent):
-        """สร้างหมวดหมู่สินค้า"""
-        box = ctk.CTkFrame(parent, fg_color="transparent")
-        box.grid(row=1, column=0, sticky="ew", pady=20, padx=10)
-        
-        # หัวข้อ
-        title = ctk.CTkLabel(box, text="หมวดหมู่ตุ๊กตา",
-                            font=("IBM Plex Sans Thai", 20, "bold"),
-                            text_color="#6D4C41")
-        title.pack(anchor="w")
-        
-        # พื้นที่ปุ่ม
-        btn_area = ctk.CTkFrame(box, fg_color="transparent")
-        btn_area.pack(fill="x", pady=10)
-        
-        # ดึงหมวดหมู่
-        categories = self.db.get_categories()
-        
-        # ไอคอน
-        icons = {
-            'ตุ๊กตาหมี': '🧸',
-            'ตุ๊กตากระต่าย': '🐰',
-            'ตุ๊กตาแมว': '🐱',
-            'ตุ๊กตาช้าง': '🐘',
-            'ตุ๊กตายูนิคอร์น': '🦄',
-            'ตุ๊กตาสุนัข': '🐶',
+        # --- 3. สร้าง Frame หลักสำหรับเนื้อหา (เลื่อนได้) ---
+        main_content_frame = ctk.CTkScrollableFrame(
+            self,
+            fg_color="transparent",
+            scrollbar_button_color="#FFB6C1"
+        )
+        main_content_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=0)
+        main_content_frame.grid_columnconfigure(0, weight=1)
+
+        # --- 4. สร้างส่วน Banner ---
+        banner_image = self.main_app.load_image("banner.png", size=(2100, 250)) 
+        banner_label = ctk.CTkLabel(
+            main_content_frame,
+            text="",
+            image=banner_image,
+            corner_radius=20
+        )
+        banner_label.grid(row=0, column=0, sticky="ew", pady=(10, 20))
+
+        # --- 5. สร้างส่วน หมวดหมู่ ---
+        category_section_frame = ctk.CTkFrame(main_content_frame, fg_color="transparent")
+        category_section_frame.grid(row=1, column=0, sticky="ew", pady=20, padx=10)
+
+        category_title_label = ctk.CTkLabel(
+            category_section_frame,
+            text="หมวดหมู่ตุ๊กตา",
+            font=("IBM Plex Sans Thai", 20, "bold"),
+            text_color="#6D4C41"
+        )
+        category_title_label.pack(anchor="w")
+
+        category_buttons_frame = ctk.CTkFrame(category_section_frame, fg_color="transparent")
+        category_buttons_frame.pack(fill="x", pady=10)
+
+        categories_list = self.db.get_categories()
+        category_icons = {
+            'ตุ๊กตาหมี': '🧸', 'ตุ๊กตากระต่าย': '🐰', 'ตุ๊กตาแมว': '🐱',
+            'ตุ๊กตาช้าง': '🐘', 'ตุ๊กตายูนิคอร์น': '🦄', 'ตุ๊กตาสุนัข': '🐶',
             'ตุ๊กตาไดโนเสาร์': '🦕'
         }
-        
-        # สร้างปุ่มแต่ละหมวด
-        for cat in categories:
-            icon = icons.get(cat, '🎀')
-            
-            btn = ctk.CTkButton(btn_area,
-                               text=f"{icon} {cat}",
-                               height=40, corner_radius=20,
-                               font=("IBM Plex Sans Thai", 14, "bold"),
-                               fg_color="#FFFFFF",
-                               border_width=1, border_color="#FFEBEE",
-                               text_color="#6D4C41",
-                               hover_color="#FFE4E1",
-                               command=lambda c=cat: self.open_category(c))
-            btn.pack(side="left", padx=5)
-    
-    def create_products(self, parent):
-        """สร้างสินค้าแนะนำ"""
-        box = ctk.CTkFrame(parent, fg_color="transparent")
-        box.grid(row=2, column=0, sticky="nsew", pady=10)
-        
-        # หัวข้อ
-        title = ctk.CTkLabel(box, text="สินค้าแนะนำ ✨",
-                            font=("IBM Plex Sans Thai", 20, "bold"),
-                            text_color="#6D4C41")
-        title.pack(anchor="w", padx=10)
-        
-        # พื้นที่การ์ด
-        grid = ctk.CTkFrame(box, fg_color="transparent")
-        grid.pack(fill="both", expand=True, pady=10)
-        
-        # ดึงสินค้า 8 รายการ
-        products = self.db.get_all_products(limit=8)
-        
-        # จำนวนคอลัมน์
+
+        for category_name in categories_list:
+            icon = category_icons.get(category_name, '🎀')
+            category_button = ctk.CTkButton(
+                category_buttons_frame,
+                text=f"{icon} {category_name}",
+                height=40, corner_radius=20,
+                font=("IBM Plex Sans Thai", 14, "bold"),
+                fg_color="#FFFFFF", border_width=1, border_color="#FFEBEE",
+                text_color="#6D4C41", hover_color="#FFE4E1",
+                command=lambda c=category_name: self.main_app.navigate_to('ProductListWindow', category=c)
+            )
+            category_button.pack(side="left", padx=5)
+
+        # --- 6. สร้างส่วน สินค้าแนะนำ ---
+        recommended_section_container = ctk.CTkFrame(main_content_frame, fg_color="transparent")
+        recommended_section_container.grid(row=2, column=0, sticky="nsew", pady=10)
+
+        recommended_title_label = ctk.CTkLabel(
+            recommended_section_container,
+            text="สินค้าแนะนำ ✨",
+            font=("IBM Plex Sans Thai", 20, "bold"),
+            text_color="#6D4C41"
+        )
+        recommended_title_label.pack(anchor="w", padx=10)
+
+        products_grid_frame = ctk.CTkFrame(recommended_section_container, fg_color="transparent")
+        products_grid_frame.pack(fill="both", expand=True, pady=10)
+
+        recommended_products_data = self.db.get_all_products(limit=8)
         cols = 4
+
+        for i, product_dict in enumerate(recommended_products_data):
+            row, col = divmod(i, cols)
+            products_grid_frame.grid_columnconfigure(col, weight=1, uniform="prod_card")
+
+            product_object = Product.from_dict(product_dict)
+            product_card = ctk.CTkFrame(products_grid_frame,
+                                        fg_color="#FFFFFF", corner_radius=15,
+                                        border_width=1, border_color="#FFEBEE")
+
+            product_card_image = self.main_app.get_product_image(product_object.image_url)
+            image_label_card = ctk.CTkLabel(product_card, text="", image=product_card_image, bg_color="transparent")
+            image_label_card.pack(pady=(15, 10))
+
+            name_label_card = ctk.CTkLabel(
+                product_card, text=product_object.name,
+                font=("IBM Plex Sans Thai", 16, "bold"), text_color="#6D4C41"
+            )
+            name_label_card.pack(padx=10)
+
+            price_label_card = ctk.CTkLabel(
+                product_card, text=product_object.format_price(),
+                font=("IBM Plex Sans Thai", 14), text_color="#FFB6C1"
+            )
+            price_label_card.pack(pady=5)
+
+            add_cart_button_card = ctk.CTkButton(
+                product_card, text="หยิบใส่ตะกร้า",
+                height=35, corner_radius=10,
+                font=("IBM Plex Sans Thai", 14, "bold"),
+                fg_color="#FFB6C1", hover_color="#FFC0CB", text_color="white",
+                command=lambda p=product_object: self.add_to_cart(p)
+            )
+            add_cart_button_card.pack(pady=10, padx=15, fill="x")
+
+            product_card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+
+        # --- 7. สร้างส่วน Footer (ลบปุ่ม "เกี่ยวกับเรา" ออกแล้ว) ---
+        footer_frame = ctk.CTkFrame(main_content_frame, fg_color="transparent")
+        footer_frame.grid(row=3, column=0, sticky="ew", pady=20)
         
-        # สร้างการ์ดทีละใบ
-        for i, p_data in enumerate(products):
-            row = i // cols
-            col = i % cols
-            
-            grid.grid_columnconfigure(col, weight=1, uniform="card")
-            
-            product = Product.from_dict(p_data)
-            card = self.make_card(grid, product)
-            card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
-    
-    def make_card(self, parent, product):
-        """สร้างการ์ดสินค้า 1 ใบ"""
-        card = ctk.CTkFrame(parent, fg_color="#FFFFFF",
-                           corner_radius=15,
-                           border_width=1, border_color="#FFEBEE")
-        
-        # รูป
-        img = self.main_app.get_product_image(product.image_url)
-        img_label = ctk.CTkLabel(card, text="", image=img,
-                                bg_color="transparent")
-        img_label.pack(pady=(15, 10))
-        
-        # ชื่อ
-        name = ctk.CTkLabel(card, text=product.name,
-                           font=("IBM Plex Sans Thai", 16, "bold"),
-                           text_color="#6D4C41")
-        name.pack(padx=10)
-        
-        # ราคา
-        price = ctk.CTkLabel(card, text=product.format_price(),
-                            font=("IBM Plex Sans Thai", 14),
-                            text_color="#FFB6C1")
-        price.pack(pady=5)
-        
-        # ปุ่มหยิบ
-        btn = ctk.CTkButton(card, text="หยิบใส่ตะกร้า",
-                           height=35, corner_radius=10,
-                           font=("IBM Plex Sans Thai", 14, "bold"),
-                           fg_color="#FFB6C1", hover_color="#FFC0CB",
-                           text_color="white",
-                           command=lambda p=product: self.add_to_cart(p))
-        btn.pack(pady=10, padx=15, fill="x")
-        
-        return card
-    
-    def create_footer(self, parent):
-        """สร้างท้ายหน้า"""
-        footer = ctk.CTkFrame(parent, fg_color="transparent")
-        footer.grid(row=3, column=0, sticky="ew", pady=20)
-        
-        text = ctk.CTkLabel(footer,
-                           text="© 2025 Dollie Shop by Phimonwan M.",
-                           font=("IBM Plex Sans Thai", 12),
-                           text_color="gray")
-        text.pack(pady=10)
-    
-    # === ฟังก์ชันการทำงาน ===
-    
-    def search(self, event=None):
-        """ค้นหาสินค้า"""
-        keyword = self.search_text.get().strip()
-        
-        if not keyword:
-            messagebox.showinfo("ค้นหา", "กรุณาพิมพ์คำค้นหา",
-                              parent=self)
+        # (เราอาจจะใส่ข้อความลิขสิทธิ์ไว้เล็กๆ แทน)
+        footer_label = ctk.CTkLabel(
+            footer_frame, 
+            text="© 2025 Dollie Shop by Phimonwan M.",
+            font=("IBM Plex Sans Thai", 12),
+            text_color="gray"
+        )
+        footer_label.pack(pady=10)
+
+
+    # --- (NEW) ฟังก์ชันสำหรับจัดการการค้นหา ---
+    def on_search(self, event=None): # event=None เพื่อรองรับการกด Enter
+        """
+        ทำงานเมื่อกดปุ่มค้นหา หรือ Enter ในช่องค้นหาหน้า Home
+        """
+        search_term = self.home_search_var.get().strip()
+        if not search_term:
+            # ถ้าช่องค้นหาว่างเปล่า
+            messagebox.showinfo("ค้นหา", "กรุณาพิมพ์คำค้นหา", parent=self)
             return
         
-        self.main_app.navigate_to('ProductListWindow', search_term=keyword)
-    
-    def open_category(self, category):
-        """เปิดหมวดหมู่"""
-        self.main_app.navigate_to('ProductListWindow', category=category)
-    
+        # นำทางไปยังหน้า ProductListWindow พร้อมส่งคำค้นหา
+        print(f"Home searching for: {search_term}")
+        # (NEW) ส่ง search_term ไปยังหน้า ProductListWindow
+        self.main_app.navigate_to('ProductListWindow', search_term=search_term)
+
     def add_to_cart(self, product):
-        """เพิ่มลงตะกร้า"""
+        """เพิ่มสินค้าลงตะกร้า แล้วแสดง popup"""
+        # --- เพิ่มการตรวจสอบก่อน add_to_cart (ถ้ายังไม่ login) ---
         if not self.session.is_logged_in():
-            messagebox.showwarning("กรุณาเข้าสู่ระบบ",
-                                  "คุณต้องเข้าสู่ระบบก่อนเพิ่มสินค้าลงตะกร้า",
-                                  parent=self)
-            return
-        
+             messagebox.showwarning("กรุณาเข้าสู่ระบบ", "คุณต้องเข้าสู่ระบบก่อนเพิ่มสินค้าลงตะกร้า", parent=self)
+             return # หยุดทำงานถ้ายังไม่ login
+        # --- สิ้นสุดการตรวจสอบ---
+
         self.cart.add_item(product)
-        messagebox.showinfo("ตะกร้าสินค้า",
-                           f"เพิ่ม '{product.name}' ลงในตะกร้าแล้ว!",
-                           parent=self)
-    
-    # === ไปหน้าอื่นๆ ===
-    
-    def go_dashboard(self):
-        self.main_app.navigate_to('AdminDashboardWindow')
-    
-    def go_orders(self):
-        self.main_app.navigate_to('AdminOrdersWindow')
-    
-    def go_products(self):
-        self.main_app.navigate_to('AdminWindow')
-    
-    def go_about(self):
-        self.main_app.navigate_to('AboutWindow')
-    
-    def go_profile(self):
-        self.main_app.navigate_to('ProfileWindow')
-    
-    def go_history(self):
-        self.main_app.navigate_to('OrderHistoryWindow')
-    
-    def go_cart(self):
-        self.main_app.navigate_to('CartWindow')
+        messagebox.showinfo("ตะกร้าสินค้า", f"เพิ่ม '{product.name}' ลงในตะกร้าแล้ว!", parent=self)
