@@ -282,6 +282,15 @@ class ReceiptWindow(ctk.CTkFrame):
         customer_name = order_details.get('full_name', 'ลูกค้าทั่วไป')
         self.create_info_row(order_info_frame, "ลูกค้า:", customer_name)
         
+        # ### <<< เพิ่มใหม่ >>> ###
+        # เบอร์โทรลูกค้า
+        customer_phone = order_details.get('buyer_phone', '-')
+        if not customer_phone: # ถ้า buyer_phone ว่าง ให้ไปดึงจาก full_name (เผื่อไว้)
+             customer_phone = order_details.get('phone', '-')
+             
+        self.create_info_row(order_info_frame, "เบอร์โทร:", customer_phone)
+        # ### <<< จบส่วนที่เพิ่ม >>> ###
+        
         # การชำระเงิน
         payment = order_details.get('payment_method', '-')
         self.create_info_row(order_info_frame, "ชำระโดย:", payment)
@@ -333,11 +342,20 @@ class ReceiptWindow(ctk.CTkFrame):
         
         # แสดงรายการสินค้า
         if items_list:
-            price_per_item = subtotal / len(items_list)
+            # ### <<< แก้ไขเล็กน้อย >>> ###
+            # คำนวณราคารวมของ item ทั้งหมดก่อน
+            total_quantity = sum(item['qty'] for item in items_list)
+            if total_quantity == 0:
+                 total_quantity = 1 # ป้องกันการหารด้วย 0
+                 
+            # ราคาต่อหน่วย (เฉลี่ยจากราคาก่อน VAT / จำนวนชิ้นทั้งหมด)
+            price_per_unit = subtotal / total_quantity
             
             for item in items_list:
-                item_total = price_per_item * item['qty']
-                self.create_item_row(items_container, item, price_per_item, item_total)
+                # ราคารวมของรายการนี้ = ราคาต่อหน่วย * จำนวนชิ้น
+                item_total = price_per_unit * item['qty']
+                self.create_item_row(items_container, item, price_per_unit, item_total)
+        # ### <<< จบส่วนที่แก้ไข >>> ###
 
     def parse_items_string(self, items_string):
         # แปลง string รายการสินค้าเป็น list ของ dict
@@ -349,16 +367,20 @@ class ReceiptWindow(ctk.CTkFrame):
         item_strings = items_string.split(', ')
         
         for item_str in item_strings:
-            parts = item_str.rsplit(' x', 1)
-            
-            if len(parts) == 2:
-                item_name = parts[0]
-                quantity = int(parts[1])
-            else:
-                item_name = item_str
-                quantity = 1
-            
-            items_list.append({'name': item_name, 'qty': quantity})
+            try:
+                parts = item_str.rsplit(' x', 1)
+                
+                if len(parts) == 2:
+                    item_name = parts[0]
+                    quantity = int(parts[1])
+                else:
+                    item_name = item_str
+                    quantity = 1
+                
+                items_list.append({'name': item_name, 'qty': quantity})
+            except Exception:
+                # ถ้าแปลง quantity ไม่ได้
+                items_list.append({'name': item_str, 'qty': 1})
         
         return items_list
 
@@ -378,7 +400,8 @@ class ReceiptWindow(ctk.CTkFrame):
         item_detail_row.pack(fill="x", pady=(0, 8))
         
         # จำนวน x ราคา
-        qty_price_text = f"  {item['qty']} x {price_per_item:.2f}"
+        # ### <<< แก้ไขเล็กน้อย >>> ### (ใช้ price_per_item)
+        qty_price_text = f"  {item['qty']} x {price_per_item:,.2f}"
         qty_label = ctk.CTkLabel(
             item_detail_row,
             text=qty_price_text,
@@ -391,7 +414,8 @@ class ReceiptWindow(ctk.CTkFrame):
         # รวม
         total_label = ctk.CTkLabel(
             item_detail_row,
-            text=f"{item_total:.2f}",
+             # ### <<< แก้ไขเล็กน้อย >>> ### (ใช้ item_total)
+            text=f"{item_total:,.2f}",
             font=ctk.CTkFont(size=10),
             text_color="#333333",
             anchor="e"
@@ -430,7 +454,7 @@ class ReceiptWindow(ctk.CTkFrame):
         
         value = ctk.CTkLabel(
             row_frame,
-            text=f"{amount:.2f}",
+            text=f"{amount:,.2f}", # ### <<< แก้ไขเล็กน้อย >>> ### (เพิ่ม ,)
             font=ctk.CTkFont(size=11),
             text_color="#333333",
             anchor="e"
@@ -458,7 +482,7 @@ class ReceiptWindow(ctk.CTkFrame):
         
         total_value = ctk.CTkLabel(
             total_row,
-            text=f"{total_with_vat:.2f}",
+            text=f"{total_with_vat:,.2f}", # ### <<< แก้ไขเล็กน้อย >>> ### (เพิ่ม ,)
             font=ctk.CTkFont(size=16, weight="bold"),
             text_color="#FF6B35",
             anchor="e"
@@ -485,7 +509,11 @@ class ReceiptWindow(ctk.CTkFrame):
         status_label.pack(pady=(10, 5), padx=15)
         
         # ที่อยู่จัดส่ง
-        shipping_address = order_details.get('shipping_address')
+        # ### <<< แก้ไขเล็กน้อย >>> ### (ใช้ buyer_address)
+        shipping_address = order_details.get('buyer_address')
+        if not shipping_address:
+             shipping_address = order_details.get('shipping_address') # ใช้ค่าสำรอง
+        
         if shipping_address:
             address_title = ctk.CTkLabel(
                 extra_info_frame,

@@ -64,6 +64,9 @@ def split_long_text(text, canvas_obj, max_width, font_size):
     คืนค่า:
         list ของข้อความที่แบ่งแล้ว
     """
+    if not text:
+        return []
+        
     words = text.split()  # แยกคำ
     lines = []
     current_line = ""
@@ -184,9 +187,19 @@ def generate_receipt_pdf(order_id, db):
     y -= line_space
     
     # วันที่
-    order_date = order_data.get('created_at', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    if len(order_date) > 19:
-        order_date = order_date[:19]  # ตัดให้เหลือ 19 ตัวอักษร
+    order_date_str = order_data.get('created_at', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    
+    # ### <<< แก้ไขเล็กน้อย >>> ###
+    # (แปลงเป็น object เพื่อจัดรูปแบบ, ถ้าทำได้)
+    try:
+        order_date_obj = datetime.fromisoformat(order_date_str)
+        order_date = order_date_obj.strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        if len(order_date_str) > 19:
+             order_date = order_date_str[:19]  # ตัดให้เหลือ 19 ตัวอักษร
+        else:
+             order_date = order_date_str
+             
     c.drawString(margin_left, y, f"วันที่: {order_date}")
     y -= line_space
     
@@ -194,6 +207,16 @@ def generate_receipt_pdf(order_id, db):
     customer = order_data.get('full_name', 'ลูกค้าทั่วไป')
     c.drawString(margin_left, y, f"ลูกค้า: {customer}")
     y -= line_space
+    
+    # ### <<< เพิ่มใหม่ >>> ###
+    # เบอร์โทรลูกค้า
+    phone = order_data.get('buyer_phone', '-')
+    if not phone or phone == 'None':
+        phone = order_data.get('phone', '-') # ใช้ค่าสำรอง
+        
+    c.drawString(margin_left, y, f"เบอร์โทร: {phone}")
+    y -= line_space
+    # ### <<< จบส่วนที่เพิ่ม >>> ###
     
     # วิธีชำระเงิน
     payment = order_data.get('payment_method', '-')
@@ -222,16 +245,19 @@ def generate_receipt_pdf(order_id, db):
         item_list = items_text.split(', ')
         
         for item_text in item_list:
-            # แยกชื่อสินค้าและจำนวน (คั่นด้วย " x")
-            parts = item_text.rsplit(' x', 1)
-            if len(parts) == 2:
-                name = parts[0]
-                quantity = int(parts[1])
-            else:
-                name = item_text
-                quantity = 1
-            
-            items.append({'name': name, 'qty': quantity})
+            try:
+                # แยกชื่อสินค้าและจำนวน (คั่นด้วย " x")
+                parts = item_text.rsplit(' x', 1)
+                if len(parts) == 2:
+                    name = parts[0]
+                    quantity = int(parts[1])
+                else:
+                    name = item_text
+                    quantity = 1
+                
+                items.append({'name': name, 'qty': quantity})
+            except Exception:
+                items.append({'name': item_text, 'qty': 1})
     
     # คำนวณราคา
     total = float(order_data.get('total_amount', 0))
@@ -240,19 +266,26 @@ def generate_receipt_pdf(order_id, db):
     # ถ้ามีหลายรายการ แบ่งราคาเฉลี่ย
     c.setFont(FONT_NORMAL, 8)
     if items:
-        price_per_item = price_before_vat / len(items)
+        # ### <<< แก้ไขเล็กน้อย >>> ### (วิธีคำนวณราคาต่อชิ้น)
+        total_quantity = sum(item['qty'] for item in items)
+        if total_quantity == 0:
+            total_quantity = 1 # ป้องกันหารด้วย 0
+            
+        # ราคาต่อหน่วย (เฉลี่ยจากราคาก่อน VAT / จำนวนชิ้นทั้งหมด)
+        price_per_unit = price_before_vat / total_quantity
         
         for item in items:
-            item_total = price_per_item * item['qty']
+            # ราคารวมของรายการนี้ = ราคาต่อหน่วย * จำนวนชิ้น
+            item_total = price_per_unit * item['qty']
             
             # บรรทัดที่ 1: ชื่อสินค้า
             c.drawString(margin_left, y, item['name'])
             y -= line_space * 0.9
             
             # บรรทัดที่ 2: จำนวน x ราคา = ราคารวม
-            qty_text = f"  {item['qty']} x {price_per_item:.2f}"
+            qty_text = f"  {item['qty']} x {price_per_unit:,.2f}"
             c.drawString(margin_left + 3*mm, y, qty_text)
-            c.drawRightString(paper_width - margin_left, y, f"{item_total:.2f}")
+            c.drawRightString(paper_width - margin_left, y, f"{item_total:,.2f}")
             y -= line_space * 1.2
     
     # เส้นคั่น
@@ -269,12 +302,12 @@ def generate_receipt_pdf(order_id, db):
     
     # ยอดรวม (ก่อน VAT)
     c.drawString(margin_left, y, "ยอดรวม (Subtotal)")
-    c.drawRightString(paper_width - margin_left, y, f"{price_before_vat:.2f}")
+    c.drawRightString(paper_width - margin_left, y, f"{price_before_vat:,.2f}")
     y -= line_space
     
     # VAT 7%
     c.drawString(margin_left, y, "VAT 7%")
-    c.drawRightString(paper_width - margin_left, y, f"{vat:.2f}")
+    c.drawRightString(paper_width - margin_left, y, f"{vat:,.2f}")
     y -= line_space * 1.2
     
     # เส้นคั่นหนา
@@ -286,7 +319,7 @@ def generate_receipt_pdf(order_id, db):
     # ยอดรวมทั้งสิ้น (ตัวใหญ่ตัวหนา)
     c.setFont(FONT_BOLD, 12)
     c.drawString(margin_left, y, "ยอดรวมทั้งสิ้น")
-    c.drawRightString(paper_width - margin_left, y, f"{total:.2f}")
+    c.drawRightString(paper_width - margin_left, y, f"{total:,.2f}")
     y -= line_space * 1.5
     
     # เส้นคั่น
@@ -315,7 +348,11 @@ def generate_receipt_pdf(order_id, db):
     y -= line_space * 1.2
     
     # ที่อยู่จัดส่ง
-    address = order_data.get('shipping_address')
+    # ### <<< แก้ไขเล็กน้อย >>> ### (ใช้ buyer_address)
+    address = order_data.get('buyer_address')
+    if not address:
+        address = order_data.get('shipping_address') # ใช้ค่าสำรอง
+        
     if address:
         c.setFont(FONT_BOLD, 8)
         c.drawString(margin_left, y, "ที่อยู่จัดส่ง:")
