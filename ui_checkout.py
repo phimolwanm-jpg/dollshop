@@ -21,6 +21,12 @@ class CheckoutWindow(ctk.CTkFrame):
         self.slip_filename_label = None 
         self.confirm_btn = None
         
+        # ### <<< เพิ่มใหม่ >>> ###
+        # ตัวแปรสำหรับเก็บช่องกรอกข้อมูลที่อยู่
+        self.entry_name = None
+        self.entry_phone = None
+        self.entry_address = None
+        # ### <<< จบส่วนที่เพิ่ม >>> ###
        
         # หา Path ของโฟลเดอร์ปัจจุบันที่ไฟล์ ui_checkout.py อยู่
         BASE_DIR = os.path.abspath(os.path.dirname(__file__)) 
@@ -43,6 +49,12 @@ class CheckoutWindow(ctk.CTkFrame):
             
         # สร้าง UI และอัปเดตข้อมูลใหม่
         self.setup_ui()
+        
+        # ### <<< เพิ่มใหม่ >>> ###
+        # ดึงข้อมูลโปรไฟล์มาใส่ในช่องกรอกโดยอัตโนมัติ
+        self.load_profile_data() 
+        # ### <<< จบส่วนที่เพิ่ม >>> ###
+        
         self.update_payment_ui()
 
     def setup_ui(self):
@@ -77,6 +89,8 @@ class CheckoutWindow(ctk.CTkFrame):
         # --- Left Panel ---
         left_panel = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=20, border_width=2, border_color="#FFEBEE")
         left_panel.grid(row=1, column=0, sticky="nsew", padx=(30, 10), pady=10)
+        
+        # ### <<< แก้ไข >>> ### (เรียกใช้ฟังก์ชันที่แก้ไขแล้ว)
         self.create_shipping_payment_panel(left_panel)
         
         # --- Right Panel ---
@@ -86,57 +100,68 @@ class CheckoutWindow(ctk.CTkFrame):
 
     def create_shipping_payment_panel(self, parent):
         """สร้าง Panel ที่อยู่และวิธีการชำระเงิน"""
-        parent.pack_propagate(False)
+        parent.grid_columnconfigure(0, weight=1) # ### <<< เพิ่มใหม่ >>> ###
         
         # Shipping Address Section 
         shipping_header = ctk.CTkFrame(parent, fg_color="#FFE4E1", corner_radius=15)
-        shipping_header.pack(fill="x", padx=20, pady=(20, 10))
+        # ### <<< แก้ไข >>> ### (ใช้ .grid แทน .pack)
+        shipping_header.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
         ctk.CTkLabel(
             shipping_header,
-            text="📦 ที่อยู่สำหรับจัดส่ง",
+            text="📦 กรอกข้อมูลจัดส่ง", # ### <<< แก้ไข >>> ###
             font=ctk.CTkFont(size=20, weight="bold"),
             text_color="#6D4C41"
         ).pack(pady=15, padx=20)
         
-        address_frame = ctk.CTkFrame(parent, fg_color="#FFF0F5", corner_radius=15, border_width=1, border_color="#FFEBEE")
-        address_frame.pack(fill="x", padx=20, pady=(0, 20))
+        # ### <<< เพิ่มใหม่ >>> ###
+        # --- กรอบสำหรับปุ่มดึงข้อมูล ---
+        load_btn_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        load_btn_frame.grid(row=1, column=0, sticky="e", padx=20, pady=(0, 5))
         
-        
-        user = self.session.current_user
-        if user and user.address:
-            # ถ้ามี user และมีที่อยู่
-            address_text = user.address
-        else:
-            # ถ้าไม่มี user หรือ user ไม่มีที่อยู่
-            address_text = "⚠️ ยังไม่มีที่อยู่\nกรุณาเพิ่มในหน้าโปรไฟล์"
-        # ----------------------------------------------------
-        
-        self.address_label = ctk.CTkLabel(
-            address_frame,
-            text=address_text,
-            justify="left",
-            wraplength=400,
-            font=ctk.CTkFont(size=14),
-            text_color="#6D4C41"
-        )
-        self.address_label.pack(padx=20, pady=20)
-        
-        edit_btn = ctk.CTkButton(
-            parent,
-            text="✏️ แก้ไขที่อยู่",
+        load_btn = ctk.CTkButton(
+            load_btn_frame,
+            text="ดึงข้อมูลจากโปรไฟล์",
+            command=self.load_profile_data,
             fg_color="transparent",
             text_color="#FFB6C1",
             hover_color="#FFE4E1",
             border_width=1,
             border_color="#FFB6C1",
             corner_radius=10,
-            command=lambda: self.main_app.navigate_to('ProfileWindow')
+            font=ctk.CTkFont(size=12)
         )
-        edit_btn.pack(padx=20, pady=(0, 20))
+        load_btn.pack()
+        
+        # --- กรอบสำหรับช่องกรอกข้อมูล ---
+        address_frame = ctk.CTkFrame(parent, fg_color="#FFF0F5", corner_radius=15, border_width=1, border_color="#FFEBEE")
+        address_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 20))
+        address_frame.grid_columnconfigure(1, weight=1) # ให้ช่องกรอกขยาย
+        
+        # 1. ชื่อ-นามสกุล
+        ctk.CTkLabel(address_frame, text="ชื่อ-นามสกุล ผู้รับ:", font=ctk.CTkFont(size=14)).grid(row=0, column=0, padx=10, pady=(15, 5), sticky="e")
+        self.entry_name = ctk.CTkEntry(address_frame, font=ctk.CTkFont(size=14))
+        self.entry_name.grid(row=0, column=1, padx=(0, 20), pady=(15, 5), sticky="ew")
+        
+        # 2. เบอร์โทร
+        ctk.CTkLabel(address_frame, text="เบอร์โทรศัพท์:", font=ctk.CTkFont(size=14)).grid(row=1, column=0, padx=10, pady=5, sticky="e")
+        self.entry_phone = ctk.CTkEntry(address_frame, font=ctk.CTkFont(size=14))
+        self.entry_phone.grid(row=1, column=1, padx=(0, 20), pady=5, sticky="ew")
+        
+        # 3. ที่อยู่
+        ctk.CTkLabel(address_frame, text="ที่อยู่จัดส่ง:", font=ctk.CTkFont(size=14)).grid(row=2, column=0, padx=10, pady=5, sticky="ne")
+        self.entry_address = ctk.CTkTextbox(address_frame, font=ctk.CTkFont(size=14), height=100)
+        self.entry_address.grid(row=2, column=1, padx=(0, 20), pady=(5, 15), sticky="ew")
+        
+        # ผูก event ให้ปุ่มยืนยันอัปเดต เมื่อมีการพิมพ์
+        self.entry_name.bind("<KeyRelease>", self.update_confirm_button_state)
+        self.entry_phone.bind("<KeyRelease>", self.update_confirm_button_state)
+        self.entry_address.bind("<KeyRelease>", self.update_confirm_button_state)
+        # ### <<< จบส่วนที่เพิ่ม/แก้ไข >>> ###
         
         # Payment Method Section 
         payment_header = ctk.CTkFrame(parent, fg_color="#FFE4E1", corner_radius=15)
-        payment_header.pack(fill="x", padx=20, pady=(20, 10))
+        # ### <<< แก้ไข >>> ### (ใช้ .grid แทน .pack)
+        payment_header.grid(row=3, column=0, sticky="ew", padx=20, pady=(20, 10))
         ctk.CTkLabel(
             payment_header,
             text="💰 วิธีการชำระเงิน",
@@ -146,18 +171,17 @@ class CheckoutWindow(ctk.CTkFrame):
         
         # Payment Options
         payment_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        payment_frame.pack(fill="x", padx=20, pady=10)
+        # ### <<< แก้ไข >>> ### (ใช้ .grid แทน .pack)
+        payment_frame.grid(row=4, column=0, sticky="ew", padx=20, pady=10)
         
         self.payment_var = ctk.StringVar(value="โอนเงินผ่านธนาคาร")
-        # .trace_add จะคอย 'ดักฟัง' การเปลี่ยนแปลงของตัวแปรนี้
-        # ถ้ามีการ 'write' (เปลี่ยนแปลง) ให้เรียกฟังก์ชัน self.update_payment_ui
-        self.payment_var.trace_add("write", lambda name, index, mode: self.update_payment_ui())
+        self.payment_var.trace_add("write", lambda n, i, m: self.update_payment_ui())
         
         radio1 = ctk.CTkRadioButton(
             payment_frame,
             text="🏦 โอนเงินผ่านธนาคาร/พร้อมเพย์ (พร้อมแนบสลิป)",
-            variable=self.payment_var, # ผูกกับตัวแปร
-            value="โอนเงินผ่านธนาคาร",   # ค่าเมื่อถูกเลือก
+            variable=self.payment_var, 
+            value="โอนเงินผ่านธนาคาร",   
             font=ctk.CTkFont(size=14),
             text_color="#6D4C41",
             fg_color="#FFB6C1",
@@ -168,13 +192,10 @@ class CheckoutWindow(ctk.CTkFrame):
         # ส่วน QR Code และแนบสลิป (จะถูกซ่อน/แสดง)
         self.bank_transfer_detail_frame = ctk.CTkFrame(payment_frame, fg_color="#FFF0F5", corner_radius=10, border_width=1, border_color="#FFEBEE")
         
-        # QR Code Section
         qr_code_frame = ctk.CTkFrame(self.bank_transfer_detail_frame, fg_color="transparent")
         qr_code_frame.pack(side="left", padx=15, pady=10, fill="y")
         
-        # Load QR Code Image
         try:
-            # 💡 การใช้ self.QR_PATH ที่ถูกแก้ไขแล้ว จะทำให้หาไฟล์เจอแน่นอน
             qr_img = Image.open(self.QR_PATH).resize((180, 180), Image.LANCZOS)
             self.qr_ctk_img = ctk.CTkImage(qr_img, size=(180, 180))
             ctk.CTkLabel(qr_code_frame, image=self.qr_ctk_img, text="").pack(pady=5)
@@ -183,7 +204,6 @@ class CheckoutWindow(ctk.CTkFrame):
         except Exception:
              ctk.CTkLabel(qr_code_frame, text="[โหลดรูป QR Code ผิดพลาด]", text_color="#F44336").pack(pady=5)
 
-        # Bank Info Text (ข้อมูลพร้อมเพย์)
         bank_info_text = ctk.CTkFrame(self.bank_transfer_detail_frame, fg_color="transparent")
         bank_info_text.pack(side="left", padx=15, pady=10, fill="both", expand=True)
 
@@ -196,7 +216,6 @@ class CheckoutWindow(ctk.CTkFrame):
             anchor="w"
         ).pack(anchor="w", pady=(0, 5))
 
-        # Upload Slip Section
         self.upload_slip_frame = ctk.CTkFrame(bank_info_text, fg_color="transparent")
         self.upload_slip_frame.pack(fill="x", pady=(5, 0))
         self.upload_slip_frame.grid_columnconfigure(0, weight=1)
@@ -211,7 +230,6 @@ class CheckoutWindow(ctk.CTkFrame):
         )
         upload_btn.grid(row=0, column=0, padx=(0, 10), sticky="ew")
 
-        # เก็บ Label นี้ไว้ใน self. เพื่อให้ฟังก์ชันอื่นอัปเดตข้อความได้
         self.slip_filename_label = ctk.CTkLabel(
             self.upload_slip_frame,
             text="ไฟล์ยังไม่ได้เลือก",
@@ -224,8 +242,8 @@ class CheckoutWindow(ctk.CTkFrame):
         radio2 = ctk.CTkRadioButton(
             payment_frame,
             text="📦 เก็บเงินปลายทาง (COD)",
-            variable=self.payment_var, # ผูกกับตัวแปรเดียวกัน
-            value="เก็บเงินปลายทาง",     # ค่าเมื่อถูกเลือก
+            variable=self.payment_var,
+            value="เก็บเงินปลายทาง",
             font=ctk.CTkFont(size=14),
             text_color="#6D4C41",
             fg_color="#FFB6C1",
@@ -233,71 +251,83 @@ class CheckoutWindow(ctk.CTkFrame):
         )
         radio2.pack(anchor="w", padx=25, pady=8)
 
+    # ### <<< เพิ่มใหม่ >>> ###
+    def load_profile_data(self):
+        """ดึงข้อมูลจากโปรไฟล์มาใส่ในช่องกรอก"""
+        user = self.session.current_user
+        if not user:
+            return # ถ้าไม่มี user (เช่น guest) ก็ไม่ต้องทำอะไร
+            
+        # เคลียร์ข้อมูลเก่า (ถ้ามี)
+        self.entry_name.delete(0, "end")
+        self.entry_phone.delete(0, "end")
+        self.entry_address.delete("1.0", "end")
+        
+        # ใส่ข้อมูลใหม่จากโปรไฟล์
+        if user.full_name:
+            self.entry_name.insert(0, user.full_name)
+        if user.phone:
+            self.entry_phone.insert(0, user.phone)
+        if user.address:
+            self.entry_address.insert("1.0", user.address)
+            
+        # อัปเดตสถานะปุ่มหลังจากดึงข้อมูล
+        self.update_confirm_button_state()
+
     def select_slip_image(self):
         """เปิด Dialog เลือกไฟล์สลิป"""
         filetypes = [("Image files", "*.png *.jpg *.jpeg")]
         filepath = filedialog.askopenfilename(title="เลือกไฟล์สลิปการโอนเงิน", filetypes=filetypes)
         
         if filepath:
-            # ถ้าผู้ใช้เลือกไฟล์
             self.uploaded_slip_path = filepath
-            filename = os.path.basename(filepath) # เอาเฉพาะชื่อไฟล์
+            filename = os.path.basename(filepath) 
             self.slip_filename_label.configure(text=filename, text_color="#4CAF50")
         else:
-            # ถ้าผู้ใช้กดยกเลิก
             self.uploaded_slip_path = None
             self.slip_filename_label.configure(text="ไฟล์ยังไม่ได้เลือก", text_color="gray50")
         
-        # อัปเดตสถานะปุ่มทุกครั้งที่เลือก (หรือยกเลิก) ไฟล์
-        self.update_confirm_button_state()
+        self.update_confirm_button_state(event=None) # ### <<< แก้ไข >>> ### (เรียกใช้)
 
     def update_payment_ui(self):
         """แสดง/ซ่อนรายละเอียดการโอนเงินตามที่เลือก"""
         if self.payment_var.get() == "โอนเงินผ่านธนาคาร":
-            # ถ้าเลือกโอนเงิน -> 'แสดง' กรอบโอนเงิน
             self.bank_transfer_detail_frame.pack(fill="x", padx=25, pady=(5, 8))
         else:
-            # ถ้าเลือกอย่างอื่น (COD) -> 'ซ่อน' กรอบโอนเงิน
             self.bank_transfer_detail_frame.pack_forget()
             
-        # อัปเดตสถานะปุ่มทุกครั้งที่เปลี่ยนวิธีชำระเงิน
-        self.update_confirm_button_state()
+        self.update_confirm_button_state(event=None) # ### <<< แก้ไข >>> ### (เรียกใช้)
 
-    def update_confirm_button_state(self):
+    # ### <<< แก้ไข >>> ### (เพิ่ม event=None เพื่อรับการเรียกใช้จาก .bind)
+    def update_confirm_button_state(self, event=None):
         """อัปเดตสถานะปุ่มยืนยันคำสั่งซื้อ (กดได้/ไม่ได้)"""
         if not self.confirm_btn:
-            # ถ้าปุ่มยังไม่ถูกสร้าง (เช่น ตอนเปิดแอปครั้งแรก) ก็ไม่ต้องทำอะไร
             return
 
-        # ----------------------------------------------------
-        # ตรวจสอบเงื่อนไขให้ชัดเจน
-        # ----------------------------------------------------
-        
-        # 1. ตรวจสอบที่อยู่
-        user_address = self.session.current_user.address if self.session.current_user else None
-        has_address = bool(user_address) # True ถ้ามีที่อยู่, False ถ้าไม่มี
+        # 1. ตรวจสอบที่อยู่ (จากช่องกรอกใหม่)
+        # (ต้องเช็คว่า widget ถูกสร้างแล้วหรือยัง)
+        has_name = bool(self.entry_name and self.entry_name.get().strip())
+        has_phone = bool(self.entry_phone and self.entry_phone.get().strip())
+        has_address = bool(self.entry_address and self.entry_address.get("1.0", "end-1c").strip())
         
         # 2. ตรวจสอบว่ามีของในตะกร้า
-        has_items = bool(self.cart.get_items()) # True ถ้ามีของ, False ถ้าตะกร้าว่าง
+        has_items = bool(self.cart.get_items()) 
         
         # 3. ตรวจสอบสลิป (เฉพาะเมื่อเลือกโอนเงิน)
         payment_method = self.payment_var.get()
-        slip_ok = True # ตั้งค่าเริ่มต้นว่า 'ผ่าน'
+        slip_ok = True 
         
         if payment_method == "โอนเงินผ่านธนาคาร":
-            # ถ้าเลือกโอนเงิน 'สลิปจะโอเค' ก็ต่อเมื่อ 'มีการอัปโหลดสลิปแล้ว'
             slip_ok = bool(self.uploaded_slip_path)
         
-        # สรุปเงื่อนไข: ปุ่มจะกดได้ (normal)
-        # ต่อเมื่อ: มีของ(has_items) AND มีที่อยู่(has_address) AND สลิปโอเค(slip_ok)
-        
-        can_confirm = has_items and has_address and slip_ok
+        # สรุปเงื่อนไข:
+        # มีของ AND มีชื่อ AND มีเบอร์ AND มีที่อยู่ AND สลิปโอเค
+        can_confirm = has_items and has_name and has_phone and has_address and slip_ok
         
         if can_confirm:
             self.confirm_btn.configure(state="normal")
         else:
             self.confirm_btn.configure(state="disabled")
-        # ----------------------------------------------------
 
     def create_summary_panel(self, parent):
         """สร้าง Panel สรุปรายการสินค้าและยอดรวม"""
@@ -311,7 +341,7 @@ class CheckoutWindow(ctk.CTkFrame):
             text_color="#6D4C41"
         ).pack(pady=15)
 
-        # Items List (ใช้ ScrollableFrame เผื่อของเยอะ)
+        # Items List
         items_frame = ctk.CTkScrollableFrame(
             parent,
             fg_color="transparent",
@@ -319,7 +349,6 @@ class CheckoutWindow(ctk.CTkFrame):
         )
         items_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-        # วนลูปสร้าง 'การ์ด' ของสินค้าแต่ละชิ้นในตะกร้า
         for item in self.cart.get_items():
             item_card = ctk.CTkFrame(items_frame, fg_color="#FFF0F5", corner_radius=10)
             item_card.pack(fill="x", pady=5)
@@ -355,7 +384,6 @@ class CheckoutWindow(ctk.CTkFrame):
         total_container = ctk.CTkFrame(parent, fg_color="transparent")
         total_container.pack(side="bottom", fill="x", padx=20, pady=20)
         
-        # Separator (เส้นคั่น)
         ctk.CTkFrame(total_container, height=2, fg_color="#FFEBEE").pack(fill="x", pady=15)
         
         total_frame = ctk.CTkFrame(total_container, fg_color="#FFE4E1", corner_radius=15)
@@ -378,8 +406,6 @@ class CheckoutWindow(ctk.CTkFrame):
             text_color="#FF6B9D"
         ).pack(side="right")
         
-        # เก็บ reference ของปุ่ม Confirm ไว้ใน self.confirm_btn
-        # เพื่อให้ฟังก์ชัน update_confirm_button_state เรียกใช้ได้
         self.confirm_btn = ctk.CTkButton(
             total_container,
             text="✅ ยืนยันคำสั่งซื้อ",
@@ -393,16 +419,13 @@ class CheckoutWindow(ctk.CTkFrame):
         )
         self.confirm_btn.pack(fill="x")
 
-        # เรียกอัปเดตสถานะปุ่มครั้งแรก (ตอนที่หน้าเพิ่งโหลด)
-        self.update_confirm_button_state()
+        # เรียกอัปเดตสถานะปุ่มครั้งแรก
+        self.update_confirm_button_state() # ### <<< แก้ไข >>> ### (ลบ event=None)
 
     def place_order(self):
         """ดำเนินการสร้างคำสั่งซื้อ (เมื่อกดยืนยัน)"""
         user = self.session.current_user
         
-        # ----------------------------------------------------
-        # ตรวจสอบ user ก่อน เพื่อความปลอดภัย
-        # ----------------------------------------------------
         if not user:
             messagebox.showerror("ผิดพลาด", "ไม่พบข้อมูลผู้ใช้ กรุณาล็อกอินใหม่", parent=self)
             return
@@ -410,61 +433,67 @@ class CheckoutWindow(ctk.CTkFrame):
         cart_items = self.cart.get_items()
         total_price = self.cart.get_total_price()
         payment_method = self.payment_var.get()
-        shipping_address = user.address
-        slip_filename = None # ชื่อไฟล์สลิปที่จะบันทึกลง DB (ถ้ามี)
+        slip_filename = None 
 
         # --- 1. ตรวจสอบความพร้อม (Validation) ---
         if not cart_items:
             messagebox.showwarning("ผิดพลาด", "ตะกร้าสินค้าของคุณว่างเปล่า", parent=self)
-            return # หยุดการทำงาน
-        if not shipping_address:
-            messagebox.showwarning("ผิดพลาด", "กรุณาเพิ่มที่อยู่สำหรับจัดส่งในหน้าโปรไฟล์ก่อน", parent=self)
-            return # หยุดการทำงาน
+            return
+            
+        # ### <<< เพิ่มใหม่ >>> ###
+        # --- ดึงข้อมูลจากช่องกรอก และตรวจสอบ ---
+        buyer_name = self.entry_name.get().strip()
+        buyer_phone = self.entry_phone.get().strip()
+        buyer_address = self.entry_address.get("1.0", "end-1c").strip()
+        
+        if not buyer_name or not buyer_phone or not buyer_address:
+            messagebox.showwarning("ข้อมูลไม่ครบ", "กรุณากรอก ชื่อ, เบอร์โทร, และที่อยู่จัดส่ง ให้ครบถ้วน", parent=self)
+            return
+        # ### <<< จบส่วนที่เพิ่ม >>> ###
 
         # --- 2. จัดการไฟล์สลิป (ถ้าเลือกโอนเงิน) ---
         if payment_method == "โอนเงินผ่านธนาคาร":
             if not self.uploaded_slip_path:
                 messagebox.showwarning("ผิดพลาด", "กรุณาแนบสลิปโอนเงินก่อนยืนยันคำสั่งซื้อ", parent=self)
-                return # หยุดการทำงาน
+                return
             
-            # บันทึกไฟล์สลิป
             try:
-                # สร้างชื่อไฟล์ใหม่ที่ไม่ซ้ำกัน
-                ext = os.path.splitext(self.uploaded_slip_path)[1] # .png, .jpg
-                # ใช้ user_id + เวลา (timestamp) เพื่อกันชื่อซ้ำ
+                ext = os.path.splitext(self.uploaded_slip_path)[1]
                 slip_filename = f"slip_{user.user_id}_{int(time.time())}{ext}" 
                 
-                # 💡 ใช้ self.SLIP_DIR ที่กำหนดไว้ตอน __init__
                 if not os.path.exists(self.SLIP_DIR):
-                    os.makedirs(self.SLIP_DIR) # สร้างโฟลเดอร์ถ้ายังไม่มี
+                    os.makedirs(self.SLIP_DIR) 
                     
                 dest_path = os.path.join(self.SLIP_DIR, slip_filename)
                 
-                # คัดลอกไฟล์ จากที่ผู้ใช้เลือก (source) ไปยังที่ที่เราเก็บ (destination)
                 copyfile(self.uploaded_slip_path, dest_path)
                 
             except Exception as e:
                 messagebox.showerror("ผิดพลาด", f"ไม่สามารถบันทึกไฟล์สลิปได้: {e}", parent=self)
-                return # หยุดการทำงาน
+                return
 
         # --- 3. บันทึกคำสั่งซื้อลง Database ---
         try:
+            # ### <<< แก้ไข >>> ### (ส่งข้อมูลที่กรอกใหม่เข้า DB)
             order_id = self.db.create_order(
                 user_id=user.user_id,
                 total_amount=total_price,
                 items=cart_items,
                 payment_method=payment_method,
-                shipping_address=shipping_address,
-                slip_image_filename=slip_filename # จะเป็น None ถ้าเป็น COD
+                shipping_address=buyer_address, # ส่งที่อยู่ใหม่ไปช่อง legacy
+                slip_image_filename=slip_filename,
+                
+                # ส่งข้อมูลใหม่ไปช่องที่ถูกต้อง
+                buyer_name=buyer_name,
+                buyer_phone=buyer_phone,
+                buyer_address=buyer_address
             )
+            # ### <<< จบส่วนที่แก้ไข >>> ###
             
             if order_id:
-                # ถ้าสำเร็จ
-                self.cart.clear() # ล้างตะกร้า
-                # ไปหน้าขอบคุณ
+                self.cart.clear() 
                 self.main_app.navigate_to('ThankYouWindow', order_id=order_id)
             else:
-                # ถ้า db.create_order คืนค่ามาเป็น None (ไม่สำเร็จ)
                 messagebox.showerror("ผิดพลาด", "ไม่สามารถสร้างคำสั่งซื้อได้", parent=self)
                 
         except Exception as e:
