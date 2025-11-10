@@ -588,6 +588,7 @@ class AdminDashboardWindow(ctk.CTkFrame):
             self.show_yearly_sales()
     
     
+    # ### <<< แก้ไข: เปลี่ยนไปใช้ get_items_sold_by_date >>> ###
     def show_daily_sales(self):
         """แสดงยอดขายรายวัน"""
         date_string = self.selected_date.strftime('%Y-%m-%d')
@@ -633,6 +634,7 @@ class AdminDashboardWindow(ctk.CTkFrame):
             card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
     
     
+    # ### <<< แก้ไข: เปลี่ยนไปใช้ get_items_sold_by_month >>> ###
     def show_monthly_sales(self):
         """แสดงยอดขายรายเดือน"""
         date_string = f"{self.selected_year}-{self.selected_month:02d}"
@@ -679,6 +681,7 @@ class AdminDashboardWindow(ctk.CTkFrame):
             card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
     
     
+    # ### <<< แก้ไข: เปลี่ยนไปใช้ get_items_sold_by_year >>> ###
     def show_yearly_sales(self):
         """แสดงยอดขายรายปี"""
         year_string = str(self.selected_year)

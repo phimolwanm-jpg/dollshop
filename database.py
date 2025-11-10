@@ -480,7 +480,7 @@ class Database:
         
         try:
             cursor.execute('''
-                SELECT o.*, u.username, u.full_name, 
+                SELECT o.*, u.username, u.full_name, u.phone,
                        GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
                 FROM orders o 
                 LEFT JOIN users u ON o.user_id = u.user_id 
@@ -969,6 +969,97 @@ class Database:
             return []
         finally:
             self.close()
+
+    # ### <<< เพิ่มใหม่: 3 ฟังก์ชันสำหรับนับจำนวนสินค้า >>> ###
+    
+    def get_items_sold_by_date(self, date_str):
+        """
+        ดึงจำนวนสินค้าที่ขายได้ตามวันที่
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            query = """
+                SELECT 
+                    DATE(o.created_at) as sale_date,
+                    COALESCE(SUM(oi.quantity), 0) as total_items
+                FROM orders o
+                LEFT JOIN order_items oi ON o.order_id = oi.order_id
+                WHERE DATE(o.created_at) = DATE(?) 
+                  AND o.status != 'cancelled'
+                GROUP BY DATE(o.created_at)
+            """
+            cursor.execute(query, (date_str,))
+            result = cursor.fetchall()
+            return [dict(row) for row in result]
+            
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาด (get_items_sold_by_date): {e}")
+            return []
+        finally:
+            self.close()
+
+    def get_items_sold_by_month(self, month_str):
+        """
+        ดึงจำนวนสินค้าที่ขายได้ตามเดือน
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            query = """
+                SELECT 
+                    STRFTIME('%Y-%m', o.created_at) as sale_month,
+                    COALESCE(SUM(oi.quantity), 0) as total_items
+                FROM orders o
+                LEFT JOIN order_items oi ON o.order_id = oi.order_id
+                WHERE STRFTIME('%Y-%m', o.created_at) = ? 
+                  AND o.status != 'cancelled'
+                GROUP BY STRFTIME('%Y-%m', o.created_at)
+            """
+            cursor.execute(query, (month_str,))
+            result = cursor.fetchall()
+            return [dict(row) for row in result]
+            
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาด (get_items_sold_by_month): {e}")
+            return []
+        finally:
+            self.close()
+
+    def get_items_sold_by_year(self, year_str):
+        """
+        ดึงจำนวนสินค้าที่ขายได้ตามปี
+        """
+        cursor = self.connect()
+        if not cursor:
+            return []
+        
+        try:
+            query = """
+                SELECT 
+                    STRFTIME('%Y', o.created_at) as sale_year,
+                    COALESCE(SUM(oi.quantity), 0) as total_items
+                FROM orders o
+                LEFT JOIN order_items oi ON o.order_id = oi.order_id
+                WHERE STRFTIME('%Y', o.created_at) = ? 
+                  AND o.status != 'cancelled'
+                GROUP BY STRFTIME('%Y', o.created_at)
+            """
+            cursor.execute(query, (year_str,))
+            result = cursor.fetchall()
+            return [dict(row) for row in result]
+            
+        except sqlite3.Error as e:
+            print(f"เกิดข้อผิดพลาด (get_items_sold_by_year): {e}")
+            return []
+        finally:
+            self.close()
+    # ### <<< จบส่วนที่เพิ่มใหม่ >>> ###
+
 
 if __name__ == "__main__":
     print("กำลังเริ่มต้น... สร้างตารางและผู้ใช้ตัวอย่าง (ถ้ายังไม่มี)")
