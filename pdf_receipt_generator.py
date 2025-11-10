@@ -126,16 +126,19 @@ def generate_receipt_pdf(order_id, db):
     pdf_filename = f"receipt_{order_id}_{timestamp}.pdf"
     pdf_path = os.path.join(pdf_folder, pdf_filename)
     
-    # ===== 3. กำหนดขนาดกระดาษ =====
-    paper_width = 80 * mm   # กว้าง 80mm (กระดาษสลิป)
+    # ### <<< แก้ไข >>> ###
+    # ===== 3. กำหนดขนาดกระดาษ (A4) =====
+    paper_width = 210 * mm   # กว้าง 210mm (A4)
     paper_height = 297 * mm # สูง 297mm
     
     # สร้าง Canvas สำหรับวาด PDF
     c = canvas.Canvas(pdf_path, pagesize=(paper_width, paper_height))
     
     # ===== 4. กำหนดตำแหน่งเริ่มต้น =====
-    y = paper_height - 10 * mm  # เริ่มจากบน ห่างขอบ 10mm
-    margin_left = 5 * mm         # ขอบซ้าย
+    y = paper_height - 20 * mm  # เริ่มจากบน ห่างขอบ 20mm
+    margin_left = 15 * mm         # ขอบซ้าย 15mm
+    # ### <<< จบส่วนที่แก้ไข >>> ###
+    
     line_space = 4 * mm          # ระยะห่างระหว่างบรรทัด
     
     
@@ -189,14 +192,12 @@ def generate_receipt_pdf(order_id, db):
     # วันที่
     order_date_str = order_data.get('created_at', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     
-    # ### <<< แก้ไขเล็กน้อย >>> ###
-    # (แปลงเป็น object เพื่อจัดรูปแบบ, ถ้าทำได้)
     try:
         order_date_obj = datetime.fromisoformat(order_date_str)
         order_date = order_date_obj.strftime("%Y-%m-%d %H:%M")
     except Exception:
         if len(order_date_str) > 19:
-             order_date = order_date_str[:19]  # ตัดให้เหลือ 19 ตัวอักษร
+             order_date = order_date_str[:19] 
         else:
              order_date = order_date_str
              
@@ -208,15 +209,13 @@ def generate_receipt_pdf(order_id, db):
     c.drawString(margin_left, y, f"ลูกค้า: {customer}")
     y -= line_space
     
-    # ### <<< เพิ่มใหม่ >>> ###
     # เบอร์โทรลูกค้า
     phone = order_data.get('buyer_phone', '-')
     if not phone or phone == 'None':
-        phone = order_data.get('phone', '-') # ใช้ค่าสำรอง
+        phone = order_data.get('phone', '-') 
         
     c.drawString(margin_left, y, f"เบอร์โทร: {phone}")
     y -= line_space
-    # ### <<< จบส่วนที่เพิ่ม >>> ###
     
     # วิธีชำระเงิน
     payment = order_data.get('payment_method', '-')
@@ -241,12 +240,10 @@ def generate_receipt_pdf(order_id, db):
     items = []
     
     if items_text:
-        # แยกรายการสินค้า (คั่นด้วย ", ")
         item_list = items_text.split(', ')
         
         for item_text in item_list:
             try:
-                # แยกชื่อสินค้าและจำนวน (คั่นด้วย " x")
                 parts = item_text.rsplit(' x', 1)
                 if len(parts) == 2:
                     name = parts[0]
@@ -263,19 +260,15 @@ def generate_receipt_pdf(order_id, db):
     total = float(order_data.get('total_amount', 0))
     price_before_vat, vat = calculate_prices(total)
     
-    # ถ้ามีหลายรายการ แบ่งราคาเฉลี่ย
     c.setFont(FONT_NORMAL, 8)
     if items:
-        # ### <<< แก้ไขเล็กน้อย >>> ### (วิธีคำนวณราคาต่อชิ้น)
         total_quantity = sum(item['qty'] for item in items)
         if total_quantity == 0:
-            total_quantity = 1 # ป้องกันหารด้วย 0
+            total_quantity = 1 
             
-        # ราคาต่อหน่วย (เฉลี่ยจากราคาก่อน VAT / จำนวนชิ้นทั้งหมด)
         price_per_unit = price_before_vat / total_quantity
         
         for item in items:
-            # ราคารวมของรายการนี้ = ราคาต่อหน่วย * จำนวนชิ้น
             item_total = price_per_unit * item['qty']
             
             # บรรทัดที่ 1: ชื่อสินค้า
@@ -348,10 +341,9 @@ def generate_receipt_pdf(order_id, db):
     y -= line_space * 1.2
     
     # ที่อยู่จัดส่ง
-    # ### <<< แก้ไขเล็กน้อย >>> ### (ใช้ buyer_address)
     address = order_data.get('buyer_address')
     if not address:
-        address = order_data.get('shipping_address') # ใช้ค่าสำรอง
+        address = order_data.get('shipping_address') 
         
     if address:
         c.setFont(FONT_BOLD, 8)
@@ -360,7 +352,8 @@ def generate_receipt_pdf(order_id, db):
         
         # แบ่งที่อยู่ยาวๆ เป็นหลายบรรทัด
         c.setFont(FONT_NORMAL, 7)
-        max_width = paper_width - (2 * margin_left)
+        # ### <<< แก้ไข >>> ### (ค่า max_width จะถูกคำนวณใหม่ตามขนาด A4)
+        max_width = paper_width - (2 * margin_left) 
         address_lines = split_long_text(address, c, max_width, 7)
         
         for addr_line in address_lines:
