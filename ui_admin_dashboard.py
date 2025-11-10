@@ -4,13 +4,12 @@
 - สรุปยอดขายตามช่วงเวลา (รายวัน/เดือน/ปี)
 - สินค้าขายดี Top 5
 - สินค้าสต็อกต่ำ
-- คำสั่งซื้อล่าสุด
 """
 
 import customtkinter as ctk
 from tkinter import ttk, messagebox
 from datetime import datetime
-from tkcalendar import Calendar  # ### <<< แก้ไข: เปลี่ยนจาก DateEntry เป็น Calendar >>> ###
+from tkcalendar import Calendar  # ใช้ปฏิทินแบบฝัง
 
 
 class AdminDashboardWindow(ctk.CTkFrame):
@@ -26,7 +25,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
         self.selected_month = datetime.now().month  # เดือนปัจจุบัน
         self.selected_year = datetime.now().year    # ปีปัจจุบัน
         
-        # ### <<< เพิ่มใหม่ >>> ###
         self.calendar = None # ตัวแปรสำหรับเก็บ widget ปฏิทิน
         
         # สร้าง UI
@@ -345,7 +343,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
             self.create_yearly_picker()
     
     
-    # ### <<< แก้ไข >>> ###
     def create_daily_picker(self):
         """สร้าง Date Picker แบบรายวัน (ฝังปฏิทิน)"""
         
@@ -366,6 +363,9 @@ class AdminDashboardWindow(ctk.CTkFrame):
             selectmode='day',
             date_pattern='dd/mm/yyyy', # รูปแบบวันที่
             
+            # --- ### <<< เพิ่มใหม่: จำกัดไม่ให้เลือกวันในอนาคต >>> ### ---
+            maxdate=datetime.now(), 
+            
             # --- ปรับแต่งสีให้เข้ากับธีม ---
             background="#2E7D32",      # สีเขียว (ธีมปุ่ม)
             foreground="white",        # ตัวอักษร
@@ -375,10 +375,14 @@ class AdminDashboardWindow(ctk.CTkFrame):
             selectforeground="#000000",
             normalbackground="white",    # วันปกติ
             normalforeground="black",
-            othermonthbackground="#E0E0E0", # เดือนอื่น
-            othermonthforeground="gray",
+            othermonthbackground="#E0E0E0", # เดือนอื่น (พื้นหลัง)
+            othermonthforeground="gray",    # เดือนอื่น (ตัวเลข)
             weekendbackground="white",
             weekendforeground="black",
+            
+            # สีของวันที่ถูกปิด (อนาคต)
+            disabledbackground="#F5F5F5",
+            disabledforeground="#BDBDBD",
             
             # ตั้งค่าวันที่เริ่มต้น
             year=self.selected_date.year,
@@ -386,6 +390,9 @@ class AdminDashboardWindow(ctk.CTkFrame):
             day=self.selected_date.day
         )
         self.calendar.pack(fill="both", expand=True)
+        
+        # --- ### <<< เพิ่มใหม่: มาร์คสีวันที่มี-ยอดขาย >>> ### ---
+        self.mark_sales_days_on_calendar() 
         
         # ผูก event เมื่อเลือกวัน
         self.calendar.bind("<<CalendarSelected>>", self.on_date_picked)
@@ -423,7 +430,9 @@ class AdminDashboardWindow(ctk.CTkFrame):
         
         # Dropdown ปี
         current_year = datetime.now().year
-        years = [str(y) for y in range(2024, current_year + 1)]
+        
+        # ### <<< แก้ไข >>> ### (เพิ่มปีในอนาคต 5 ปี)
+        years = [str(y) for y in range(2024, current_year + 6)] # (เช่น 2024 ถึง 2030)
         
         self.year_dropdown = ctk.StringVar(value=str(current_year))
         
@@ -463,7 +472,9 @@ class AdminDashboardWindow(ctk.CTkFrame):
         
         # Dropdown ปี
         current_year = datetime.now().year
-        years = [str(y) for y in range(2024, current_year + 1)]
+
+        # ### <<< แก้ไข >>> ### (เพิ่มปีในอนาคต 5 ปี)
+        years = [str(y) for y in range(2024, current_year + 6)] # (เช่น 2024 ถึง 2030)
         
         self.year_select = ctk.StringVar(value=str(current_year))
         
@@ -498,7 +509,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
         self.update_sales_display()
     
     
-    # ### <<< แก้ไข >>> ###
     def on_date_picked(self, event=None):
         """เมื่อคลิกเลือกวันในปฏิทิน"""
         try:
@@ -533,7 +543,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
     
     
     # ฟังก์ชันตั้งค่าวันที่เร็ว
-    # ### <<< แก้ไข >>> ###
     def set_today(self):
         """ตั้งค่าเป็นวันนี้"""
         today = datetime.now()
@@ -581,21 +590,20 @@ class AdminDashboardWindow(ctk.CTkFrame):
     
     def show_daily_sales(self):
         """แสดงยอดขายรายวัน"""
-        # เปลี่ยนวันที่เป็นข้อความ
         date_string = self.selected_date.strftime('%Y-%m-%d')
         
-        # ดึงข้อมูลจาก database
+        # --- ดึงข้อมูล 2 ส่วน ---
+        # 1. รายได้ และ จำนวนออเดอร์
         data = self.db.get_sales_by_date(date_string)
-        
-        # ดึงตัวเลข
         revenue = data[0]['total_revenue'] if data else 0.0
         orders = data[0]['order_count'] if data else 0
         
-        # แสดงวันที่แบบไทย
-        date_display = self.selected_date.strftime('%d/%m/%Y')
+        # 2. จำนวนสินค้าที่ขายได้ (จากฟังก์ชันใหม่)
+        items_data = self.db.get_items_sold_by_date(date_string)
+        items_sold = items_data[0]['total_items'] if items_data else 0
+        # --- จบการดึงข้อมูล ---
         
-        # คำนวณยอดเฉลี่ย
-        avg = (revenue / orders) if orders > 0 else 0.0
+        date_display = self.selected_date.strftime('%d/%m/%Y')
         
         # ข้อมูลการ์ด 3 ใบ
         cards = [
@@ -612,9 +620,9 @@ class AdminDashboardWindow(ctk.CTkFrame):
                 'color': '#2196F3'
             },
             {
-                'title': 'ยอดเฉลี่ยต่อออเดอร์',
-                'value': f"฿{avg:,.2f}",
-                'icon': '📊',
+                'title': 'จำนวนสินค้าที่ขายได้', 
+                'value': f"{items_sold} ชิ้น",  
+                'icon': '📦',                   
                 'color': '#9C27B0'
             }
         ]
@@ -627,24 +635,24 @@ class AdminDashboardWindow(ctk.CTkFrame):
     
     def show_monthly_sales(self):
         """แสดงยอดขายรายเดือน"""
-        # เปลี่ยนเป็นข้อความ
         date_string = f"{self.selected_year}-{self.selected_month:02d}"
         
-        # ดึงข้อมูล
+        # --- ดึงข้อมูล 2 ส่วน ---
+        # 1. รายได้ และ จำนวนออเดอร์
         data = self.db.get_sales_by_month(date_string)
-        
         revenue = data[0]['total_revenue'] if data else 0.0
         orders = data[0]['order_count'] if data else 0
         
-        # ชื่อเดือนภาษาไทย
+        # 2. จำนวนสินค้าที่ขายได้ (จากฟังก์ชันใหม่)
+        items_data = self.db.get_items_sold_by_month(date_string)
+        items_sold = items_data[0]['total_items'] if items_data else 0
+        # --- จบการดึงข้อมูล ---
+        
         months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
                   "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
         month_name = months[self.selected_month - 1]
         
-        # คำนวณยอดเฉลี่ย
-        avg = (revenue / orders) if orders > 0 else 0.0
-        
-        # ข้อมูลการ์ด
+        # ข้อมูลการ์ด 3 ใบ
         cards = [
             {
                 'title': f'รายได้ {month_name} {self.selected_year}',
@@ -659,9 +667,9 @@ class AdminDashboardWindow(ctk.CTkFrame):
                 'color': '#FF9800'
             },
             {
-                'title': 'ยอดเฉลี่ยต่อออเดอร์',
-                'value': f"฿{avg:,.2f}",
-                'icon': '📊',
+                'title': 'จำนวนสินค้าที่ขายได้', 
+                'value': f"{items_sold} ชิ้น",  
+                'icon': '📦',                   
                 'color': '#9C27B0'
             }
         ]
@@ -673,16 +681,20 @@ class AdminDashboardWindow(ctk.CTkFrame):
     
     def show_yearly_sales(self):
         """แสดงยอดขายรายปี"""
-        # ดึงข้อมูล
-        data = self.db.get_sales_by_year(str(self.selected_year))
+        year_string = str(self.selected_year)
         
+        # --- ดึงข้อมูล 2 ส่วน ---
+        # 1. รายได้ และ จำนวนออเดอร์
+        data = self.db.get_sales_by_year(year_string)
         revenue = data[0]['total_revenue'] if data else 0.0
         orders = data[0]['order_count'] if data else 0
         
-        # คำนวณยอดเฉลี่ย
-        avg = (revenue / orders) if orders > 0 else 0.0
+        # 2. จำนวนสินค้าที่ขายได้ (จากฟังก์ชันใหม่)
+        items_data = self.db.get_items_sold_by_year(year_string)
+        items_sold = items_data[0]['total_items'] if items_data else 0
+        # --- จบการดึงข้อมูล ---
         
-        # ข้อมูลการ์ด
+        # ข้อมูลการ์ด 3 ใบ
         cards = [
             {
                 'title': f'รายได้รวมปี {self.selected_year}',
@@ -697,9 +709,9 @@ class AdminDashboardWindow(ctk.CTkFrame):
                 'color': '#FF9800'
             },
             {
-                'title': 'ยอดเฉลี่ยต่อออเดอร์',
-                'value': f"฿{avg:,.2f}",
-                'icon': '📊',
+                'title': 'จำนวนสินค้าที่ขายได้', 
+                'value': f"{items_sold} ชิ้น", 
+                'icon': '📦',                   
                 'color': '#9C27B0'
             }
         ]
@@ -971,3 +983,35 @@ class AdminDashboardWindow(ctk.CTkFrame):
             
             # เพิ่มแถวในตาราง
             table.insert("", "end", values=(order_id, customer, amount, status, date))
+
+    # ### <<< เพิ่มฟังก์ชันใหม่ >>> ###
+    # ==================== ฟังก์ชันใหม่สำหรับปฏิทิน ====================
+    def mark_sales_days_on_calendar(self):
+        """
+        ดึงข้อมูลยอดขายทั้งหมดและมาร์คสีลงบนปฏิทิน
+        """
+        if not self.calendar:
+            return # ถ้าปฏิทินยังไม่ถูกสร้าง ก็ไม่ต้องทำอะไร
+
+        try:
+            # 1. ตั้งค่า tag สีก่อน
+            # 'sales_day' = วันที่มี-ยอดขาย
+            self.calendar.tag_config('sales_day', background='#C8E6C9', foreground='black') # สีเขียวอ่อน
+            
+            # 2. ดึงข้อมูล-ยอดขายทั้งหมด (แบบรายวัน)
+            # (เราใช้ฟังก์ชันเดิมที่ database.py มีอยู่แล้ว)
+            sales_data = self.db.get_sales_by_period('day')
+            if not sales_data:
+                return
+
+            # 3. วนลูปและเพิ่ม event ลงในปฏิทิน
+            for day_data in sales_data:
+                if day_data['total_revenue'] > 0:
+                    # แปลง string 'YYYY-MM-DD' กลับเป็น object date
+                    sale_date = datetime.strptime(day_data['sales_period'], '%Y-%m-%d').date()
+                    
+                    # เพิ่ม event ลงในวันนั้น
+                    self.calendar.event_add(date=sale_date, tags='sales_day')
+
+        except Exception as e:
+            print(f"เกิดข้อผิดพลาดในการมาร์คสีปฏิทิน: {e}")
