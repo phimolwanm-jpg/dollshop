@@ -363,8 +363,9 @@ class AdminDashboardWindow(ctk.CTkFrame):
             selectmode='day',
             date_pattern='dd/mm/yyyy', # รูปแบบวันที่
             
-            # --- ### <<< เพิ่มใหม่: จำกัดไม่ให้เลือกวันในอนาคต >>> ### ---
-            maxdate=datetime.now(), 
+            # --- ### <<< แก้ไข: จำกัดวันเริ่มต้นและสิ้นสุด >>> ### ---
+            mindate=datetime(2024, 1, 1), # วันที่ร้านเปิด
+            maxdate=datetime.now(),       # วันนี้ (ห้ามดูอนาคต)
             
             # --- ปรับแต่งสีให้เข้ากับธีม ---
             background="#2E7D32",      # สีเขียว (ธีมปุ่ม)
@@ -380,7 +381,7 @@ class AdminDashboardWindow(ctk.CTkFrame):
             weekendbackground="white",
             weekendforeground="black",
             
-            # สีของวันที่ถูกปิด (อนาคต)
+            # สีของวันที่ถูกปิด (อนาคต/อดีตก่อนร้านเปิด)
             disabledbackground="#F5F5F5",
             disabledforeground="#BDBDBD",
             
@@ -391,7 +392,7 @@ class AdminDashboardWindow(ctk.CTkFrame):
         )
         self.calendar.pack(fill="both", expand=True)
         
-        # --- ### <<< เพิ่มใหม่: มาร์คสีวันที่มี-ยอดขาย >>> ### ---
+        # --- มาร์คสีวันที่มี-ยอดขาย ---
         self.mark_sales_days_on_calendar() 
         
         # ผูก event เมื่อเลือกวัน
@@ -588,7 +589,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
             self.show_yearly_sales()
     
     
-    # ### <<< แก้ไข: เปลี่ยนไปใช้ get_items_sold_by_date >>> ###
     def show_daily_sales(self):
         """แสดงยอดขายรายวัน"""
         date_string = self.selected_date.strftime('%Y-%m-%d')
@@ -634,7 +634,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
             card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
     
     
-    # ### <<< แก้ไข: เปลี่ยนไปใช้ get_items_sold_by_month >>> ###
     def show_monthly_sales(self):
         """แสดงยอดขายรายเดือน"""
         date_string = f"{self.selected_year}-{self.selected_month:02d}"
@@ -681,7 +680,6 @@ class AdminDashboardWindow(ctk.CTkFrame):
             card.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
     
     
-    # ### <<< แก้ไข: เปลี่ยนไปใช้ get_items_sold_by_year >>> ###
     def show_yearly_sales(self):
         """แสดงยอดขายรายปี"""
         year_string = str(self.selected_year)
