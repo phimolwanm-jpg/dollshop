@@ -8,9 +8,9 @@
 """
 
 import customtkinter as ctk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from datetime import datetime
-from tkcalendar import DateEntry
+from tkcalendar import Calendar  # ### <<< แก้ไข: เปลี่ยนจาก DateEntry เป็น Calendar >>> ###
 
 
 class AdminDashboardWindow(ctk.CTkFrame):
@@ -25,6 +25,9 @@ class AdminDashboardWindow(ctk.CTkFrame):
         self.selected_date = datetime.now()       # วันที่ปัจจุบัน
         self.selected_month = datetime.now().month  # เดือนปัจจุบัน
         self.selected_year = datetime.now().year    # ปีปัจจุบัน
+        
+        # ### <<< เพิ่มใหม่ >>> ###
+        self.calendar = None # ตัวแปรสำหรับเก็บ widget ปฏิทิน
         
         # สร้าง UI
         self.create_layout()
@@ -328,6 +331,8 @@ class AdminDashboardWindow(ctk.CTkFrame):
         # ลบ widgets เดิม
         for widget in self.date_picker_area.winfo_children():
             widget.destroy()
+            
+        self.calendar = None # รีเซ็ตตัวแปร
         
         # สร้างแบบใหม่ตามประเภท
         period = self.period_type.get()
@@ -340,42 +345,51 @@ class AdminDashboardWindow(ctk.CTkFrame):
             self.create_yearly_picker()
     
     
+    # ### <<< แก้ไข >>> ###
     def create_daily_picker(self):
-        """สร้าง Date Picker แบบรายวัน"""
-        # ข้อความ
-        label = ctk.CTkLabel(
-            self.date_picker_area,
-            text="เลือกวันที่:",
-            font=ctk.CTkFont(size=13)
-        )
-        label.pack(side="left", padx=(0, 10))
+        """สร้าง Date Picker แบบรายวัน (ฝังปฏิทิน)"""
         
-        # ปฏิทิน
-        self.calendar = DateEntry(
-            self.date_picker_area,
-            width=15,
-            background='#4CAF50',
-            foreground='white',
-            borderwidth=2,
-            date_pattern='dd/mm/yyyy',
-            mindate=datetime(2024, 1, 1),
-            maxdate=datetime.now(),
-            font=('Arial', 11)
-        )
-        self.calendar.pack(side="left", padx=(0, 10))
-        self.calendar.bind("<<DateEntrySelected>>", lambda e: self.on_date_picked())
-        
-        # ปุ่มวันนี้
+        # ปุ่ม "วันนี้" (ย้ายมาไว้ข้างบนปฏิทิน)
         btn_today = ctk.CTkButton(
             self.date_picker_area,
-            text="วันนี้",
-            width=80,
+            text="ข้ามไปวันนี้",
+            width=120,
             command=self.set_today,
             fg_color="#2196F3",
             hover_color="#42A5F5"
         )
-        btn_today.pack(side="left", padx=5)
-    
+        btn_today.pack(side="top", anchor="e", pady=(0, 10))
+
+        # สร้างปฏิทินแบบฝัง
+        self.calendar = Calendar(
+            self.date_picker_area,
+            selectmode='day',
+            date_pattern='dd/mm/yyyy', # รูปแบบวันที่
+            
+            # --- ปรับแต่งสีให้เข้ากับธีม ---
+            background="#2E7D32",      # สีเขียว (ธีมปุ่ม)
+            foreground="white",        # ตัวอักษร
+            headersbackground="#81C784", # หัววัน (จ. อ. พ.)
+            headersforeground="#2E7D32",
+            selectbackground="#FFEB3B",  # สีที่เลือก (เหลือง)
+            selectforeground="#000000",
+            normalbackground="white",    # วันปกติ
+            normalforeground="black",
+            othermonthbackground="#E0E0E0", # เดือนอื่น
+            othermonthforeground="gray",
+            weekendbackground="white",
+            weekendforeground="black",
+            
+            # ตั้งค่าวันที่เริ่มต้น
+            year=self.selected_date.year,
+            month=self.selected_date.month,
+            day=self.selected_date.day
+        )
+        self.calendar.pack(fill="both", expand=True)
+        
+        # ผูก event เมื่อเลือกวัน
+        self.calendar.bind("<<CalendarSelected>>", self.on_date_picked)
+
     
     def create_monthly_picker(self):
         """สร้าง Picker แบบรายเดือน"""
@@ -483,10 +497,24 @@ class AdminDashboardWindow(ctk.CTkFrame):
         self.create_date_picker()
         self.update_sales_display()
     
-    def on_date_picked(self):
-        """เมื่อเลือกวันที่"""
-        self.selected_date = self.calendar.get_date()
-        self.update_sales_display()
+    
+    # ### <<< แก้ไข >>> ###
+    def on_date_picked(self, event=None):
+        """เมื่อคลิกเลือกวันในปฏิทิน"""
+        try:
+            # 1. ดึงวันที่ (string) จากปฏิทิน
+            date_string = self.calendar.get_date() 
+            
+            # 2. แปลง string เป็น datetime object
+            # (เราตั้ง date_pattern='dd/mm/yyyy' ไว้)
+            self.selected_date = datetime.strptime(date_string, '%d/%m/%Y')
+            
+            # 3. อัปเดตการแสดงผล
+            self.update_sales_display()
+            
+        except Exception as e:
+            print(f"Error parsing date: {e}")
+            messagebox.showerror("ผิดพลาด", "ไม่สามารถอ่านวันที่จากปฏิทินได้")
     
     def on_month_picked(self):
         """เมื่อเลือกเดือน"""
@@ -505,12 +533,14 @@ class AdminDashboardWindow(ctk.CTkFrame):
     
     
     # ฟังก์ชันตั้งค่าวันที่เร็ว
+    # ### <<< แก้ไข >>> ###
     def set_today(self):
         """ตั้งค่าเป็นวันนี้"""
         today = datetime.now()
-        self.calendar.set_date(today)
-        self.selected_date = today
-        self.update_sales_display()
+        if self.calendar: # ถ้าปฏิทินถูกสร้างแล้ว
+            self.calendar.selection_set(today) # สั่งให้ปฏิทินเลือกวันนี้
+            self.selected_date = today
+            self.update_sales_display()
     
     def set_current_month(self):
         """ตั้งค่าเป็นเดือนปัจจุบัน"""
