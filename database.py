@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timedelta # 👈 1. Import timedelta
 
 class Database:
     def __init__(self, db_name=r'M:\doll_shop\dollshop\dollieshop.db'):
@@ -15,6 +15,9 @@ class Database:
             self.insert_sample_data()
         else:
             print(f"ใช้ฐานข้อมูลที่มีอยู่: {self.db_name}")
+            # (สำคัญ) เรียก create_tables() เสมอ เพื่อให้มันตรวจสอบ
+            # และอัปเดตโครงสร้างตาราง (เช่น เพิ่มคอลัมน์) ให้อัตโนมัติ
+            self.create_tables()
 
     def connect(self):
         """เปิดการเชื่อมต่อกับฐานข้อมูล"""
@@ -35,13 +38,13 @@ class Database:
             self.conn = None
 
     def create_tables(self):
-        """สร้างตารางทั้งหมดในฐานข้อมูล"""
+        """สร้างตารางทั้งหมดในฐานข้อมูล (และอัปเดตถ้าจำเป็น)"""
         cursor = self.connect()
         if not cursor:
             return
         
         try:
-            # ตารางผู้ใช้
+            # --- ตารางผู้ใช้ ---
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,11 +56,11 @@ class Database:
                     address TEXT,
                     profile_image_url TEXT,
                     role TEXT DEFAULT 'customer',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP 
                 )
             ''')
             
-            # ตารางสินค้า
+            # --- ตารางสินค้า ---
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS products (
                     product_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,46 +70,88 @@ class Database:
                     stock INTEGER DEFAULT 0,
                     category TEXT,
                     image_url TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP
                 )
             ''')
             
-            # ตารางคำสั่งซื้อ
+            # --- ตารางคำสั่งซื้อ (Snapshot ผู้ซื้อ) ---
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS orders (
                     order_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
-                    buyer_name TEXT,
-                    buyer_phone TEXT,
-                    buyer_address TEXT,
+                    buyer_name TEXT,        -- Snapshot
+                    buyer_phone TEXT,       -- Snapshot
+                    buyer_address TEXT,     -- Snapshot
                     total_amount REAL NOT NULL,
                     status TEXT DEFAULT 'pending',
                     payment_method TEXT,
-                    shipping_address TEXT,
+                    shipping_address TEXT,  -- Legacy (เก็บไว้เผื่อ)
                     slip_image_url TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_at TIMESTAMP,   -- (เวลาไทย)
                     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE SET NULL
                 )
             ''')
             
-            # ตารางรายการสินค้าในคำสั่งซื้อ
+            # --- ตารางรายการสินค้า (Snapshot สินค้า) ---
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS order_items (
                     order_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     order_id INTEGER,
                     product_id INTEGER,
                     quantity INTEGER,
-                    price REAL,
+                    
+                    product_name TEXT,    -- Snapshot: ชื่อสินค้า
+                    price_per_unit REAL,  -- Snapshot: ราคา
+                    
                     FOREIGN KEY (order_id) REFERENCES orders (order_id) ON DELETE CASCADE,
                     FOREIGN KEY (product_id) REFERENCES products (product_id) ON DELETE SET NULL
                 )
             ''')
             
-            print("สร้างตารางทั้งหมดสำเร็จ")
+            print("สร้างตารางทั้งหมดสำเร็จ (หรือมีอยู่แล้ว)")
+            
+            # --- (สำคัญ!) อัปเดตโครงสร้างตารางเก่าอัตโนมัติ ---
+            print("กำลังตรวจสอบและอัปเดตคอลัมน์ (ALTER TABLE)...")
+            
+            # 1. เพิ่มคอลัมน์ 'product_name' (ถ้ายังไม่มี)
+            self.add_column_if_not_exists(cursor, 'order_items', 'product_name', 'TEXT')
+            
+            # 2. เพิ่มคอลัมน์ 'price_per_unit' (ถ้ายังไม่มี)
+            self.add_column_if_not_exists(cursor, 'order_items', 'price_per_unit', 'REAL')
+            
+            # 3. (สำคัญ) เปลี่ยนชื่อ 'price' (เก่า) -> 'price_per_unit' (ใหม่)
+            self.rename_column_if_exists(cursor, 'order_items', 'price', 'price_per_unit')
+            
+            print("ตรวจสอบคอลัมน์เสร็จสิ้น")
+
         except sqlite3.Error as e:
             print(f"เกิดข้อผิดพลาดในการสร้างตาราง: {e}")
         finally:
             self.close()
+
+    def add_column_if_not_exists(self, cursor, table_name, column_name, column_type):
+        """Helper: ช่วยเพิ่มคอลัมน์ถ้ายังไม่มี (กัน Error)"""
+        try:
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            columns = [info[1] for info in cursor.fetchall()]
+            if column_name not in columns:
+                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
+                print(f"  -> (สำเร็จ) เพิ่มคอลัมน์ {column_name} ในตาราง {table_name}")
+        except sqlite3.Error as e:
+            print(f"  -> (ไม่สำเร็จ) ไม่สามารถเพิ่มคอลัมน์ {column_name}: {e}")
+
+    # --- 🛠️ (เพิ่มใหม่) ฟังก์ชันเปลี่ยนชื่อคอลัมน์ ---
+    def rename_column_if_exists(self, cursor, table_name, old_name, new_name):
+        """Helper: ช่วยเปลี่ยนชื่อคอลัมน์ price -> price_per_unit (กัน Error)"""
+        try:
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            columns = [info[1] for info in cursor.fetchall()]
+            if old_name in columns and new_name not in columns:
+                cursor.execute(f"ALTER TABLE {table_name} RENAME COLUMN {old_name} TO {new_name}")
+                print(f"  -> (สำเร็จ) เปลี่ยนชื่อคอลัมน์ {old_name} เป็น {new_name}")
+        except sqlite3.Error as e:
+            # (อาจจะ Error ถ้าคอลัมน์ new_name มีอยู่แล้ว แต่ไม่เป็นไร)
+            print(f"  -> (ข้อสังเกต) ไม่สามารถเปลี่ยนชื่อคอลัมน์ {old_name}: {e}")
 
     def insert_sample_data(self):
         """เพิ่มข้อมูลตัวอย่าง (admin และ customer)"""
@@ -115,15 +160,15 @@ class Database:
             return
         
         try:
-            # ตรวจสอบว่ามีข้อมูลแล้วหรือยัง
             cursor.execute("SELECT COUNT(*) FROM users")
             if cursor.fetchone()[0] == 0:
+                thai_time = datetime.utcnow() + timedelta(hours=7)
                 users = [
-                    ('admin', 'admin', 'admin@shop.com', 'Admin User', '0800000000', '123 Shop St.', None, 'admin'),
-                    ('customer', '123456', 'customer@email.com', 'Customer Name', '0811111111', '456 User Ave.', None, 'customer')
+                    ('admin', 'admin', 'admin@shop.com', 'Admin User', '0800000000', '123 Shop St.', None, 'admin', thai_time),
+                    ('customer', '123456', 'customer@email.com', 'Customer Name', '0811111111', '456 User Ave.', None, 'customer', thai_time)
                 ]
                 cursor.executemany(
-                    'INSERT INTO users (username, password, email, full_name, phone, address, profile_image_url, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    'INSERT INTO users (username, password, email, full_name, phone, address, profile_image_url, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                     users
                 )
                 print("เพิ่มข้อมูลผู้ใช้ตัวอย่างสำเร็จ")
@@ -142,16 +187,17 @@ class Database:
         return None
 
     def create_user(self, username, password, email, full_name, phone="", address="", profile_image_url=None):
-        """สร้างผู้ใช้ใหม่"""
+        """สร้างผู้ใช้ใหม่ (ใช้เวลาไทย)"""
         cursor = self.connect()
         if not cursor:
             return None
         
         try:
+            thai_time = datetime.utcnow() + timedelta(hours=7)
             cursor.execute('''
-                INSERT INTO users (username, password, email, full_name, phone, address, profile_image_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (username, password, email, full_name, phone, address, profile_image_url))
+                INSERT INTO users (username, password, email, full_name, phone, address, profile_image_url, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (username, password, email, full_name, phone, address, profile_image_url, thai_time))
             user_id = cursor.lastrowid
             return user_id
         except sqlite3.IntegrityError:
@@ -281,16 +327,17 @@ class Database:
             self.close()
 
     def create_product(self, name, description, price, stock, category, image_url=''):
-        """สร้างสินค้าใหม่"""
+        """สร้างสินค้าใหม่ (ใช้เวลาไทย)"""
         cursor = self.connect()
         if not cursor:
             return None
         
         try:
+            thai_time = datetime.utcnow() + timedelta(hours=7)
             cursor.execute('''
-                INSERT INTO products (name, description, price, stock, category, image_url) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (name, description, price, stock, category, image_url))
+                INSERT INTO products (name, description, price, stock, category, image_url, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (name, description, price, stock, category, image_url, thai_time))
             product_id = cursor.lastrowid
             return product_id
         except sqlite3.Error as e:
@@ -351,10 +398,11 @@ class Database:
         finally:
             self.close()
 
+    # --- 🛠️ (ฟังก์ชัน create_order ฉบับ Snapshot + เวลาไทย) ---
     def create_order(self, user_id, total_amount, items, payment_method, 
                      shipping_address, slip_image_filename=None,
                      buyer_name=None, buyer_phone=None, buyer_address=None):
-        """สร้างคำสั่งซื้อใหม่"""
+        """สร้างคำสั่งซื้อใหม่ (พร้อม Snapshot)"""
         conn = None
         try:
             conn = sqlite3.connect(self.db_name)
@@ -362,35 +410,40 @@ class Database:
             conn.execute("PRAGMA foreign_keys = ON;")
             cursor = conn.cursor()
             
-            # สร้างคำสั่งซื้อ
+            # 1. (แก้ไข) เพิ่มเวลาไทย (UTC+7)
+            thai_time = datetime.utcnow() + timedelta(hours=7)
+            
+            # 2. (แก้ไข) สร้างคำสั่งซื้อ - เพิ่ม created_at
             cursor.execute('''
                 INSERT INTO orders (user_id, buyer_name, buyer_phone, buyer_address, 
-                                    total_amount, payment_method, shipping_address, slip_image_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    total_amount, payment_method, shipping_address, slip_image_url,
+                                    created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (user_id, buyer_name, buyer_phone, buyer_address, 
-                  total_amount, payment_method, shipping_address, slip_image_filename))
+                  total_amount, payment_method, shipping_address, slip_image_filename,
+                  thai_time))
             
             order_id = cursor.lastrowid
             
-            # เพิ่มรายการสินค้า
+            # 3. เพิ่มรายการสินค้า (พร้อม Snapshot)
             for item in items:
-                # ตรวจสอบสต็อก
-                cursor.execute("SELECT stock FROM products WHERE product_id = ?", 
+                cursor.execute("SELECT stock, name, price FROM products WHERE product_id = ?", 
                              (item.product.product_id,))
-                result = cursor.fetchone()
+                product_data = cursor.fetchone()
                 
-                if not result or result['stock'] < item.quantity:
+                if not product_data or product_data['stock'] < item.quantity:
                     conn.rollback()
                     print(f"สินค้า ID {item.product.product_id} สต็อกไม่พอ")
                     return None
                 
-                # เพิ่มรายการสินค้าในคำสั่งซื้อ
-                cursor.execute('''
-                    INSERT INTO order_items (order_id, product_id, quantity, price) 
-                    VALUES (?, ?, ?, ?)
-                ''', (order_id, item.product.product_id, item.quantity, item.product.price))
+                snapshot_name = product_data['name']
+                snapshot_price = product_data['price']
                 
-                # ลดสต็อก
+                cursor.execute('''
+                    INSERT INTO order_items (order_id, product_id, quantity, price_per_unit, product_name) 
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (order_id, item.product.product_id, item.quantity, snapshot_price, snapshot_name))
+                
                 cursor.execute('''
                     UPDATE products SET stock = stock - ? WHERE product_id = ?
                 ''', (item.quantity, item.product.product_id))
@@ -399,7 +452,7 @@ class Database:
             return order_id
             
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาด: {e}")
+            print(f"เกิดข้อผิดพลาด (create_order): {e}")
             if conn:
                 conn.rollback()
             return None
@@ -407,18 +460,19 @@ class Database:
             if conn:
                 conn.close()
 
+    # --- 🛠️ (ฟังก์ชัน get_user_orders ฉบับ Snapshot) ---
     def get_user_orders(self, user_id):
-        """ดึงคำสั่งซื้อของผู้ใช้"""
+        """ดึงคำสั่งซื้อของผู้ใช้ (ใช้ Snapshot)"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT o.*, GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
+                SELECT o.*, 
+                       GROUP_CONCAT(oi.product_name || ' x' || oi.quantity) as items
                 FROM orders o 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
-                LEFT JOIN products p ON oi.product_id = p.product_id
                 WHERE o.user_id = ? 
                 GROUP BY o.order_id 
                 ORDER BY o.created_at DESC
@@ -426,32 +480,32 @@ class Database:
             orders = cursor.fetchall()
             return [dict(o) for o in orders]
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาด: {e}")
+            print(f"เกิดข้อผิดพลาด (get_user_orders): {e}")
             return []
         finally:
             self.close()
 
+    # --- 🛠️ (ฟังก์ชัน get_all_orders ฉบับ Snapshot) ---
     def get_all_orders(self):
-        """ดึงคำสั่งซื้อทั้งหมด (สำหรับ Admin)"""
+        """ดึงคำสั่งซื้อทั้งหมด (สำหรับ Admin) (ใช้ Snapshot)"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT o.*, u.username, u.full_name, 
-                       GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
+                SELECT o.*, 
+                       o.buyer_name as full_name, -- (ส่ง 'buyer_name' ในชื่อ 'full_name')
+                       GROUP_CONCAT(oi.product_name || ' x' || oi.quantity) as items
                 FROM orders o 
-                LEFT JOIN users u ON o.user_id = u.user_id 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
-                LEFT JOIN products p ON oi.product_id = p.product_id
                 GROUP BY o.order_id 
                 ORDER BY o.created_at DESC
             ''')
             orders = cursor.fetchall()
             return [dict(o) for o in orders]
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาด: {e}")
+            print(f"เกิดข้อผิดพลาด (get_all_orders): {e}")
             return []
         finally:
             self.close()
@@ -472,40 +526,49 @@ class Database:
         finally:
             self.close()
 
+    # --- 🛠️ (ฟังก์ชัน get_order_details ฉบับ Snapshot) ---
     def get_order_details(self, order_id):
-        """ดึงรายละเอียดคำสั่งซื้อ"""
+        """ดึงรายละเอียดคำสั่งซื้อ (ใช้ Snapshot)"""
         cursor = self.connect()
         if not cursor:
             return None
         
         try:
             cursor.execute('''
-                SELECT o.*, u.username, u.full_name, u.phone,
-                       GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
+                SELECT o.*, 
+                       o.buyer_name as full_name, -- (ส่ง 'buyer_name' ในชื่อ 'full_name')
+                       o.buyer_phone as phone,    -- (ส่ง 'buyer_phone' ในชื่อ 'phone')
+                       GROUP_CONCAT(oi.product_name || ' x' || oi.quantity) as items
                 FROM orders o 
-                LEFT JOIN users u ON o.user_id = u.user_id 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
-                LEFT JOIN products p ON oi.product_id = p.product_id
                 WHERE o.order_id = ? 
                 GROUP BY o.order_id
             ''', (order_id,))
             order = cursor.fetchone()
             return dict(order) if order else None
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาด: {e}")
+            print(f"เกิดข้อผิดพลาด (get_order_details): {e}")
             return None
         finally:
             self.close()
 
+    # --- 🛠️ (ฟังก์ชัน get_order_items ฉบับ Snapshot) ---
     def get_order_items(self, order_id):
-        """ดึงรายการสินค้าในคำสั่งซื้อ (สำหรับพิมพ์ใบเสร็จ)"""
+        """ดึงรายการสินค้าในคำสั่งซื้อ (สำหรับพิมพ์ใบเสร็จ) (ใช้ Snapshot)"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT oi.*, p.name, p.image_url
+                SELECT 
+                    oi.order_item_id,
+                    oi.order_id,
+                    oi.product_id,
+                    oi.quantity,
+                    oi.product_name as name,        -- (Snapshot)
+                    oi.price_per_unit as price,     -- (Snapshot)
+                    p.image_url
                 FROM order_items oi
                 LEFT JOIN products p ON oi.product_id = p.product_id
                 WHERE oi.order_id = ?
@@ -513,7 +576,7 @@ class Database:
             items = cursor.fetchall()
             return [dict(item) for item in items]
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาด: {e}")
+            print(f"เกิดข้อผิดพลาด (get_order_items): {e}")
             return []
         finally:
             self.close()
@@ -542,20 +605,20 @@ class Database:
         finally:
             self.close()
 
+    # --- 🛠️ (ฟังก์ชัน get_orders_for_date ฉบับ Snapshot) ---
     def get_orders_for_date(self, date_str):
-        """ดึงรายการคำสั่งซื้อในวันที่กำหนด"""
+        """ดึงรายการคำสั่งซื้อในวันที่กำหนด (ใช้ Snapshot)"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT o.*, u.username, u.full_name, 
-                       GROUP_CONCAT(p.name || ' x' || oi.quantity) as items
+                SELECT o.*, 
+                       o.buyer_name as full_name,
+                       GROUP_CONCAT(oi.product_name || ' x' || oi.quantity) as items
                 FROM orders o 
-                LEFT JOIN users u ON o.user_id = u.user_id
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
-                LEFT JOIN products p ON oi.product_id = p.product_id
                 WHERE DATE(o.created_at) = DATE(?) 
                 GROUP BY o.order_id 
                 ORDER BY o.created_at DESC
@@ -578,18 +641,16 @@ class Database:
             return []
         
         try:
-            # เลือกรูปแบบวันที่ตาม period
             if period == 'day':
-                date_format = '%Y-%m-%d'  # ปี-เดือน-วัน
+                date_format = '%Y-%m-%d'
             elif period == 'month':
-                date_format = '%Y-%m'     # ปี-เดือน
+                date_format = '%Y-%m'
             elif period == 'year':
-                date_format = '%Y'        # ปี
+                date_format = '%Y'
             else:
                 print("period ต้องเป็น 'day', 'month' หรือ 'year' เท่านั้น")
                 return []
                 
-            # สร้าง SQL query
             query = f'''
                 SELECT 
                     STRFTIME('{date_format}', created_at) AS sales_period,
@@ -603,12 +664,9 @@ class Database:
             
             cursor.execute(query)
             sales_data = cursor.fetchall()
-            
-            # แปลงข้อมูลเป็น list of dict
             result = []
             for row in sales_data:
                 result.append(dict(row))
-            
             return result
             
         except sqlite3.Error as e:
@@ -622,8 +680,6 @@ class Database:
     def get_sales_by_date(self, date_str):
         """
         ดึงยอดขายตามวันที่ที่ระบุ
-        date_str ต้องอยู่ในรูปแบบ 'YYYY-MM-DD' เช่น '2024-01-15'
-        คืนค่า: [{'sale_date': '2024-01-15', 'order_count': 5, 'total_revenue': 15000.0}]
         """
         cursor = self.connect()
         if not cursor:
@@ -643,12 +699,9 @@ class Database:
             
             cursor.execute(query, (date_str,))
             result = cursor.fetchall()
-            
-            # แปลงเป็น list of dict
             output = []
             for row in result:
                 output.append(dict(row))
-            
             return output
             
         except sqlite3.Error as e:
@@ -660,8 +713,6 @@ class Database:
     def get_sales_by_month(self, month_str):
         """
         ดึงยอดขายตามเดือน
-        month_str ต้องอยู่ในรูปแบบ 'YYYY-MM' เช่น '2024-01'
-        คืนค่า: [{'sale_month': '2024-01', 'order_count': 150, 'total_revenue': 450000.0}]
         """
         cursor = self.connect()
         if not cursor:
@@ -681,12 +732,9 @@ class Database:
             
             cursor.execute(query, (month_str,))
             result = cursor.fetchall()
-            
-            # แปลงเป็น list of dict
             output = []
             for row in result:
                 output.append(dict(row))
-            
             return output
             
         except sqlite3.Error as e:
@@ -698,8 +746,6 @@ class Database:
     def get_sales_by_year(self, year_str):
         """
         ดึงยอดขายตามปี
-        year_str ต้องอยู่ในรูปแบบ 'YYYY' เช่น '2024'
-        คืนค่า: [{'sale_year': '2024', 'order_count': 1800, 'total_revenue': 5400000.0}]
         """
         cursor = self.connect()
         if not cursor:
@@ -719,12 +765,9 @@ class Database:
             
             cursor.execute(query, (year_str,))
             result = cursor.fetchall()
-            
-            # แปลงเป็น list of dict
             output = []
             for row in result:
                 output.append(dict(row))
-            
             return output
             
         except sqlite3.Error as e:
@@ -741,27 +784,21 @@ class Database:
         
         stats = {}
         try:
-            # นับจำนวนคำสั่งซื้อทั้งหมด
             cursor.execute("SELECT COUNT(*) FROM orders")
             stats['total_orders'] = cursor.fetchone()[0]
             
-            # รายได้รวม (ไม่นับที่ยกเลิก)
             cursor.execute("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status != 'cancelled'")
             stats['total_revenue'] = cursor.fetchone()[0]
             
-            # จำนวนสินค้าทั้งหมด
             cursor.execute("SELECT COUNT(*) FROM products")
             stats['total_products'] = cursor.fetchone()[0]
             
-            # สินค้าสต็อกต่ำ (น้อยกว่า 10)
             cursor.execute("SELECT COUNT(*) FROM products WHERE stock < 10")
             stats['low_stock_count'] = cursor.fetchone()[0]
             
-            # จำนวนลูกค้า
             cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'customer'")
             stats['total_customers'] = cursor.fetchone()[0]
             
-            # คำสั่งซื้อที่รอดำเนินการ
             cursor.execute("SELECT COUNT(*) FROM orders WHERE status = 'pending'")
             stats['pending_orders'] = cursor.fetchone()[0]
             
@@ -779,7 +816,6 @@ class Database:
             return []
         
         try:
-            # ถ้าไม่ระบุ role = ดึงทั้งหมด
             query = "SELECT * FROM users"
             params = []
             
@@ -791,12 +827,9 @@ class Database:
             
             cursor.execute(query, params)
             users = cursor.fetchall()
-            
-            # แปลงเป็น list of dict
             result = []
             for user in users:
                 result.append(dict(user))
-            
             return result
             
         except sqlite3.Error as e:
@@ -835,7 +868,6 @@ class Database:
         
         try:
             cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
-            # ตรวจสอบว่าลบสำเร็จหรือไม่
             return cursor.rowcount > 0
         except sqlite3.Error as e:
             print(f"เกิดข้อผิดพลาด: {e}")
@@ -850,15 +882,11 @@ class Database:
             return []
         
         try:
-            # ดึงสินค้าที่มีสต็อกน้อยกว่า threshold
             cursor.execute('SELECT * FROM products WHERE stock < ? ORDER BY stock ASC', (threshold,))
             products = cursor.fetchall()
-            
-            # แปลงเป็น list of dict
             result = []
             for product in products:
                 result.append(dict(product))
-            
             return result
             
         except sqlite3.Error as e:
@@ -867,27 +895,25 @@ class Database:
         finally:
             self.close()
 
+    # --- 🛠️ (ฟังก์ชัน get_recent_orders ฉบับ Snapshot) ---
     def get_recent_orders(self, limit=10):
-        """ดึงคำสั่งซื้อล่าสุด"""
+        """ดึงคำสั่งซื้อล่าสุด (ใช้ Snapshot)"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
             cursor.execute('''
-                SELECT o.*, u.username, u.full_name 
+                SELECT o.*, 
+                       o.buyer_name as full_name
                 FROM orders o 
-                LEFT JOIN users u ON o.user_id = u.user_id
                 ORDER BY o.created_at DESC 
                 LIMIT ?
             ''', (limit,))
             orders = cursor.fetchall()
-            
-            # แปลงเป็น list of dict
             result = []
             for order in orders:
                 result.append(dict(order))
-            
             return result
             
         except sqlite3.Error as e:
@@ -896,33 +922,35 @@ class Database:
         finally:
             self.close()
 
+    # --- 🛠️ (ฟังก์ชัน get_top_selling_products ฉบับแก้ไข) ---
     def get_top_selling_products(self, limit=5):
-        """ดึงสินค้าขายดี"""
+        """ดึงสินค้าขายดี (ใช้ Snapshot)"""
         cursor = self.connect()
         if not cursor:
             return []
         
         try:
+            # (แก้ไข)
+            # 1. ลบ oi.price_per_unit ออกจาก GROUP BY
+            #    เพื่อให้มันนับ 'ตุ๊กตาหมี' (ที่ราคา 100) 
+            #    และ 'ตุ๊กตาหมี' (ที่ราคา 120) เป็นสินค้า "เดียวกัน"
             cursor.execute('''
                 SELECT 
-                    p.product_id, 
-                    p.name, 
-                    p.category, 
-                    p.price, 
-                    p.image_url,
+                    oi.product_id, 
+                    oi.product_name as name, 
                     SUM(oi.quantity) as total_sold, 
-                    SUM(oi.quantity * oi.price) as total_revenue
-                FROM products p 
-                JOIN order_items oi ON p.product_id = oi.product_id
+                    SUM(oi.quantity * oi.price_per_unit) as total_revenue
+                FROM order_items oi
                 JOIN orders o ON oi.order_id = o.order_id 
-                WHERE o.status != 'cancelled'
-                GROUP BY p.product_id 
+                WHERE o.status != 'cancelled' 
+                      AND oi.product_name IS NOT NULL
+                      AND oi.price_per_unit IS NOT NULL
+                GROUP BY oi.product_id, oi.product_name
                 ORDER BY total_sold DESC 
                 LIMIT ?
             ''', (limit,))
             products = cursor.fetchall()
             
-            # แปลงเป็น list of dict
             result = []
             for product in products:
                 result.append(dict(product))
@@ -930,13 +958,14 @@ class Database:
             return result
             
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาด: {e}")
+            print(f"เกิดข้อผิดพลาด (get_top_selling_products): {e}")
             return []
         finally:
             self.close()
 
+    # --- 🛠️ (ฟังก์ชัน get_sales_by_category ฉบับ Snapshot) ---
     def get_sales_by_category(self):
-        """ดึงยอดขายแยกตามหมวดหมู่"""
+        """ดึงยอดขายแยกตามหมวดหมู่ (ใช้ Snapshot)"""
         cursor = self.connect()
         if not cursor:
             return []
@@ -946,7 +975,7 @@ class Database:
                 SELECT 
                     p.category, 
                     SUM(oi.quantity) as total_quantity, 
-                    SUM(oi.quantity * oi.price) as total_revenue
+                    SUM(oi.quantity * oi.price_per_unit) as total_revenue
                 FROM products p 
                 JOIN order_items oi ON p.product_id = oi.product_id
                 JOIN orders o ON oi.order_id = o.order_id 
@@ -955,13 +984,10 @@ class Database:
                 ORDER BY total_revenue DESC
             ''')
             categories = cursor.fetchall()
-            
-            # แปลงเป็น list of dict และกรองเฉพาะที่มี category
             result = []
             for cat in categories:
                 if cat['category'] is not None:
                     result.append(dict(cat))
-            
             return result
             
         except sqlite3.Error as e:
@@ -996,7 +1022,7 @@ class Database:
             return [dict(row) for row in result]
             
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลาด (get_items_sold_by_date): {e}")
+            print(f"เกิดข้อผิดพลา (get_items_sold_by_date): {e}")
             return []
         finally:
             self.close()

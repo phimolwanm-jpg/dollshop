@@ -2,6 +2,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 import os
 import traceback
+from datetime import datetime, timedelta # 👈 1. Import datetime และ timedelta
 
 # นำเข้าตัวสร้าง PDF
 try:
@@ -271,10 +272,21 @@ class ReceiptWindow(ctk.CTkFrame):
             f"#{order_details['order_id']}"
         )
         
-        # วันที่
-        order_date = order_details.get('created_at', '-')
-        if order_date and len(order_date) > 19:
-            order_date = order_date[:19]
+        # --- 🛠️ ปรับแก้: แปลงเวลา UTC เป็นเวลาไทย (UTC+7) ---
+        order_date_str = order_details.get('created_at', '-')
+        if order_date_str and order_date_str != '-':
+            try:
+                # 1. แปลง String (UTC) เป็น datetime object
+                utc_dt = datetime.strptime(order_date_str, '%Y-%m-%d %H:%M:%S')
+                # 2. บวก 7 ชั่วโมง
+                thai_dt = utc_dt + timedelta(hours=7)
+                # 3. แปลงกลับเป็น String (เวลาไทย)
+                order_date = thai_dt.strftime('%Y-%m-%d %H:%M') # YYYY-MM-DD HH:MM
+            except ValueError:
+                order_date = order_date_str[:16] # ถ้าแปลงไม่สำเร็จ, ใช้แบบเดิม
+        else:
+            order_date = '-'
+        # --- 🛠️ สิ้นสุดการปรับแก้ ---
         
         self.create_info_row(order_info_frame, "วันที่:", order_date)
         

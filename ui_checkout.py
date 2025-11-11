@@ -1,7 +1,8 @@
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 import os # Import os เพื่อใช้งาน Path
-import time
+# import time (ไม่ใช้แล้ว)
+import datetime # 👈 1. Import datetime
 from PIL import Image
 from models import Session, Cart
 from database import Database
@@ -459,7 +460,14 @@ class CheckoutWindow(ctk.CTkFrame):
             
             try:
                 ext = os.path.splitext(self.uploaded_slip_path)[1]
-                slip_filename = f"slip_{user.user_id}_{int(time.time())}{ext}" 
+                
+                # --- 🛠️ ปรับแก้: แปลงเวลา UTC เป็นเวลาไทย (UTC+7) ---
+                utc_now = datetime.datetime.utcnow()
+                thai_offset = datetime.timedelta(hours=7)
+                thai_time = utc_now + thai_offset
+                timestamp_str = thai_time.strftime("%Y%m%d_%H%M%S")
+                slip_filename = f"slip_{user.user_id}_{timestamp_str}{ext}"
+                # --- 🛠️ สิ้นสุดการปรับแก้ ---
                 
                 if not os.path.exists(self.SLIP_DIR):
                     os.makedirs(self.SLIP_DIR) 

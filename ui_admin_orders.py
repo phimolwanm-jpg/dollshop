@@ -2,6 +2,7 @@ import customtkinter as ctk
 from tkinter import ttk, messagebox
 import os
 from PIL import Image, ImageTk
+from datetime import datetime, timedelta # 👈 (Import นี้อาจไม่จำเป็นแล้ว แต่ใส่ไว้กันเหนียว)
 
 class AdminOrdersWindow(ctk.CTkFrame):
     def __init__(self, parent, main_app):
@@ -180,7 +181,7 @@ class AdminOrdersWindow(ctk.CTkFrame):
             height=40,
             corner_radius=10,
             font=ctk.CTkFont(size=14, weight="bold"),
-            state="disabled" # ### <<< เพิ่มใหม่ >>> ###
+            state="disabled" 
         )
         self.confirm_button.pack(side="left", padx=5, fill="x", expand=True) 
         
@@ -194,7 +195,7 @@ class AdminOrdersWindow(ctk.CTkFrame):
             height=40,
             corner_radius=10,
             font=ctk.CTkFont(size=14, weight="bold"),
-            state="disabled" # ### <<< เพิ่มใหม่ >>> ###
+            state="disabled" 
         )
         self.ship_button.pack(side="left", padx=5, fill="x", expand=True)
         
@@ -208,17 +209,16 @@ class AdminOrdersWindow(ctk.CTkFrame):
             height=40,
             corner_radius=10,
             font=ctk.CTkFont(size=14, weight="bold"),
-            state="disabled" # ### <<< เพิ่มใหม่ >>> ###
+            state="disabled" 
         )
         self.deliver_button.pack(side="left", padx=5, fill="x", expand=True)
         
-        # ### <<< เพิ่มใหม่ >>> ###
         # --- 4. ปุ่ม "ยกเลิกออเดอร์" ---
         self.cancel_button = ctk.CTkButton(
             action_btn_frame,
             text="❌ ยกเลิกออเดอร์",
             command=self.cancel_selected_order, 
-            fg_color="#F44336", # สีแดง
+            fg_color="#F44336", 
             hover_color="#D32F2F",
             height=40,
             corner_radius=10,
@@ -232,7 +232,7 @@ class AdminOrdersWindow(ctk.CTkFrame):
             action_btn_frame,
             text="📷 ดูสลิป",
             command=self.view_selected_slip, 
-            fg_color="#9C27B0", # สีม่วง
+            fg_color="#9C27B0", 
             hover_color="#BA68C8",
             height=40,
             corner_radius=10,
@@ -265,12 +265,10 @@ class AdminOrdersWindow(ctk.CTkFrame):
         """
         selected_item_id = self.tree.selection()
         
-        # ถ้าไม่มีแถวไหนถูกเลือก ให้ปิดปุ่ม
         if not selected_item_id:
             self.disable_all_action_buttons()
             return
         
-        # ถ้ามีแถวถูกเลือก ให้เปิดปุ่ม
         self.confirm_button.configure(state="normal")
         self.ship_button.configure(state="normal")
         self.deliver_button.configure(state="normal")
@@ -286,18 +284,19 @@ class AdminOrdersWindow(ctk.CTkFrame):
         selected_item = self.tree.focus() 
         if not selected_item:
             return
-
-        values = self.tree.item(selected_item, 'values')
+        
+        item_data = self.tree.item(selected_item)
+        values = item_data.get('values')
+        
         if not values:
             return
 
         try:
-            order_id_str = values[0].lstrip('#')
-            order_id = int(order_id_str)
+            order_id = int(values[0]) 
             print(f"กำลังเปิดใบเสร็จสำหรับ Order ID: {order_id}")
             self.main_app.navigate_to('ReceiptWindow', order_id=order_id)
 
-        except ValueError:
+        except (ValueError, TypeError, IndexError):
             messagebox.showerror("ผิดพลาด", f"Order ID ไม่ถูกต้อง: {values[0]}", parent=self)
         except Exception as e:
             messagebox.showerror("ผิดพลาด", f"เกิดข้อผิดพลาด ao-osr: {e}", parent=self)
@@ -308,21 +307,22 @@ class AdminOrdersWindow(ctk.CTkFrame):
         (ฟังก์ชันช่วย) ดึงข้อมูล order_id จากแถวที่เลือก
         และ query ข้อมูลทั้งหมดจาก DB
         """
-        selected_item_id = self.tree.selection()
-        if not selected_item_id:
+        selected_item_ids = self.tree.selection()
+        if not selected_item_ids:
             messagebox.showwarning("คำเตือน", "กรุณาเลือกคำสั่งซื้อก่อน", parent=self)
             return None
         
-        selected_item_id = selected_item_id[0]
+        selected_item_id = selected_item_ids[0]
         
-        item_values = self.tree.item(selected_item_id)['values']
+        item_data = self.tree.item(selected_item_id)
+        item_values = item_data.get('values')
+        
         if not item_values:
             return None
             
         try:
-            order_id_str = item_values[0].lstrip('#')
-            order_id = int(order_id_str)
-        except (ValueError, IndexError):
+            order_id = int(item_values[0])
+        except (ValueError, IndexError, TypeError):
             messagebox.showerror("ผิดพลาด", "ไม่สามารถอ่าน Order ID จากตารางได้", parent=self)
             return None
         
@@ -342,6 +342,7 @@ class AdminOrdersWindow(ctk.CTkFrame):
         for item_id in self.tree.get_children():
             self.tree.delete(item_id)
         
+        # (database.py ใหม่ จะส่ง 'full_name' ที่เป็น Snapshot มาให้)
         orders_data = self.db.get_all_orders()
         
         status_text_map = {
@@ -355,25 +356,26 @@ class AdminOrdersWindow(ctk.CTkFrame):
         for order in orders_data:
             status_display = status_text_map.get(order['status'], order['status'])
             
-            order_date = order['created_at']
-            if order_date:
-                if hasattr(order_date, 'strftime'):
-                    order_date = order_date.strftime('%Y-%m-%d %H:%M')
-                elif len(order_date) > 16:
-                    order_date = order_date[:16] 
+            # --- 🛠️ (แก้ไข) จัดรูปแบบเวลา (ที่ตอนนี้เป็นเวลาไทย) ---
+            order_date_str = order.get('created_at')
+            if order_date_str and len(order_date_str) > 16:
+                # ตัดเอาแค่ 'YYYY-MM-DD HH:MM'
+                order_date_display = order_date_str[:16] 
+            elif order_date_str:
+                order_date_display = order_date_str
             else:
-                order_date = '-'
+                order_date_display = '-'
+            # --- 🛠️ (สิ้นสุดการแก้ไข) ---
                 
             self.tree.insert("", "end", values=(
-                f"#{order['order_id']}",
-                order['full_name'],
+                order['order_id'],              # 👈 1. (แก้ไข) ใช้ตัวเลข ID ตรงๆ
+                order['full_name'],             # 👈 2. (แก้ไข) ใช้ 'full_name' (ซึ่งก็คือ buyer_name)
                 f"฿{order['total_amount']:,.2f}",
                 order['payment_method'],
                 status_display,
-                order_date
+                order_date_display
             ))
             
-        # ปิดการใช้งานปุ่มทั้งหมดหลังจากโหลดข้อมูลใหม่
         self.disable_all_action_buttons()
     
     def change_status(self, new_status):
@@ -395,10 +397,7 @@ class AdminOrdersWindow(ctk.CTkFrame):
         status_name_thai = status_names_map.get(new_status, new_status)
         confirm_message = f"ต้องการเปลี่ยนสถานะ {len(selected_item_ids)} รายการ เป็น '{status_name_thai}' ใช่หรือไม่?"
         
-        # ### <<< เพิ่มใหม่ >>> ###
-        # เพิ่มไอคอนเตือนสำหรับ "ยกเลิก"
         icon_type = "warning" if new_status == 'cancelled' else "question"
-        
         user_confirmed = messagebox.askyesno("ยืนยัน", confirm_message, icon=icon_type, parent=self)
         
         if user_confirmed:
@@ -407,9 +406,9 @@ class AdminOrdersWindow(ctk.CTkFrame):
             
             for item_id in selected_item_ids:
                 try:
-                    item_values = self.tree.item(item_id)['values']
-                    order_id_str = item_values[0] 
-                    order_id = int(order_id_str.replace('#', '')) 
+                    item_data = self.tree.item(item_id)
+                    item_values = item_data.get('values')
+                    order_id = int(item_values[0]) # 👈 (แก้ไข) ดึง ID จากคอลัมน์แรก
                     
                     success = self.db.update_order_status(order_id, new_status)
                     
@@ -425,11 +424,8 @@ class AdminOrdersWindow(ctk.CTkFrame):
             if success_count > 0:
                 messagebox.showinfo("สำเร็จ", f"เปลี่ยนสถานะ {success_count} รายการเรียบร้อย!", parent=self)
             
-            # โหลดข้อมูลตารางใหม่ (ซึ่งจะปิดปุ่มทั้งหมด)
             self.load_orders()
         else:
-            # ถ้าผู้ใช้กดยกเลิก (No)
-            # ให้เคลียร์ selection และปิดปุ่ม
             for item in selected_item_ids:
                 self.tree.selection_remove(item)
             self.disable_all_action_buttons()
@@ -448,11 +444,9 @@ class AdminOrdersWindow(ctk.CTkFrame):
     def deliver_selected_order(self):
         self.change_status("delivered")
     
-    # ### <<< เพิ่มใหม่ >>> ###
     def cancel_selected_order(self):
         self.change_status("cancelled")
         
-    # ### <<< เพิ่มใหม่ >>> ###
     def disable_all_action_buttons(self):
         """(ฟังก์ชันช่วย) ปิดการใช้งานปุ่ม action ทั้งหมด"""
         if self.confirm_button:
@@ -474,20 +468,25 @@ class AdminOrdersWindow(ctk.CTkFrame):
         if not order_data:
             return 
         
-        slip_filename = order_data.get('slip_image_url')
+        slip_filename = order_data.get('slip_image_url') 
         
         if not slip_filename:
             messagebox.showinfo("ไม่มีสลิป", "คำสั่งซื้อนี้ไม่มีการแนบสลิป\n(อาจเป็น COD หรือยังไม่อัปโหลด)", parent=self)
             return
         
         try:
-            # *** ⚠️ สมมติฐาน: สลิปถูกเก็บไว้ใน "assets/slips/" ***
-            slip_path = os.path.join(self.main_app.base_path, "assets", "slips", slip_filename)
+            # (พยายามหา Path ของ assets)
+            base_dir = os.path.abspath(os.path.dirname(__file__))
+            slip_path = os.path.join(base_dir, "assets", "slips", slip_filename)
             
             if not os.path.exists(slip_path):
-                messagebox.showerror("ไม่พบไฟล์", f"ไม่พบไฟล์สลิป: {slip_filename}\nที่: {slip_path}", parent=self)
-                return
-            
+                base_dir_parent = os.path.dirname(base_dir)
+                slip_path = os.path.join(base_dir_parent, "assets", "slips", slip_filename)
+                
+                if not os.path.exists(slip_path):
+                    messagebox.showerror("ไม่พบไฟล์", f"ไม่พบไฟล์สลิป: {slip_filename}", parent=self)
+                    return
+
             self.show_slip_window(slip_path, order_data)
             
         except Exception as e:
@@ -516,6 +515,7 @@ class AdminOrdersWindow(ctk.CTkFrame):
         info_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         info_frame.grid_columnconfigure(1, weight=1)
         
+        # (database.py ใหม่ ส่ง 'buyer_name' มาใน 'full_name' และมี 'total_amount')
         ctk.CTkLabel(info_frame, text="ชื่อลูกค้า:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=5, sticky="e")
         ctk.CTkLabel(info_frame, text=f"{order_data.get('full_name', 'N/A')}", anchor="w").grid(row=0, column=1, padx=10, pady=5, sticky="w")
         

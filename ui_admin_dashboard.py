@@ -8,7 +8,7 @@
 
 import customtkinter as ctk
 from tkinter import ttk, messagebox
-from datetime import datetime
+from datetime import datetime, timedelta # 👈 1. Import timedelta
 from tkcalendar import Calendar  # ใช้ปฏิทินแบบฝัง
 
 
@@ -979,8 +979,21 @@ class AdminDashboardWindow(ctk.CTkFrame):
             amount = f"฿{order['total_amount']:,.2f}"
             status = status_thai.get(order['status'], order['status'])
             
-            # ตัดวันที่ให้เหลือ 16 ตัวอักษร
-            date = order['created_at'][:16] if order['created_at'] else '-'
+            # --- 🛠️ ปรับแก้: แปลงเวลา UTC เป็นเวลาไทย (UTC+7) ---
+            date_str = order['created_at'] if order['created_at'] else '-'
+            if date_str and date_str != '-':
+                try:
+                    # 1. แปลง String (UTC) เป็น datetime object
+                    utc_dt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+                    # 2. บวก 7 ชั่วโมง
+                    thai_dt = utc_dt + timedelta(hours=7)
+                    # 3. แปลงกลับเป็น String (เวลาไทย)
+                    date = thai_dt.strftime('%Y-%m-%d %H:%M')
+                except ValueError:
+                    date = date_str[:16] # ถ้าแปลงไม่สำเร็จ, ใช้แบบเดิม
+            else:
+                date = '-'
+            # --- 🛠️ สิ้นสุดการปรับแก้ ---
             
             # เพิ่มแถวในตาราง
             table.insert("", "end", values=(order_id, customer, amount, status, date))

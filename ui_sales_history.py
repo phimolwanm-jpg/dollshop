@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from tkinter import ttk
+from datetime import datetime, timedelta # 👈 1. Import datetime และ timedelta
 
 class SalesHistoryWindow(ctk.CTkFrame):
     def __init__(self, parent, main_app):
@@ -296,10 +297,21 @@ class SalesHistoryWindow(ctk.CTkFrame):
             # Order ID
             order_id = f"#{order['order_id']}"
             
-            # วันที่
-            date = order.get('created_at', '-')
-            if date and len(date) > 16:
-                date = date[:16]
+            # --- 🛠️ ปรับแก้: แปลงเวลา UTC เป็นเวลาไทย (UTC+7) ---
+            date_str = order.get('created_at', '-')
+            if date_str and date_str != '-':
+                try:
+                    # 1. แปลง String (UTC) เป็น datetime object
+                    utc_dt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+                    # 2. บวก 7 ชั่วโมง
+                    thai_dt = utc_dt + timedelta(hours=7)
+                    # 3. แปลงกลับเป็น String (เวลาไทย)
+                    date = thai_dt.strftime('%Y-%m-%d %H:%M')
+                except ValueError:
+                    date = date_str[:16] # ถ้าแปลงไม่สำเร็จ, ใช้แบบเดิม
+            else:
+                date = '-'
+            # --- 🛠️ สิ้นสุดการปรับแก้ ---
             
             # ลูกค้า
             customer = order.get('full_name', '-')
