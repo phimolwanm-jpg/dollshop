@@ -20,10 +20,12 @@ class AdminDashboardWindow(ctk.CTkFrame):
         self.main_app = main_app
         self.db = main_app.db
         
+        # (โค้ดส่วนนี้จากไฟล์เดิมของคุณ)
         # ตัวแปรเก็บวันที่/เดือน/ปีที่เลือก
-        self.selected_date = datetime.now()       # วันที่ปัจจุบัน
-        self.selected_month = datetime.now().month  # เดือนปัจจุบัน
-        self.selected_year = datetime.now().year    # ปีปัจจุบัน
+        # (แก้ไข) ให้ใช้ datetime.now() จาก datetime ที่ import มา
+        self.selected_date = datetime.now()
+        self.selected_month = datetime.now().month
+        self.selected_year = datetime.now().year
         
         self.calendar = None # ตัวแปรสำหรับเก็บ widget ปฏิทิน
         
@@ -979,27 +981,21 @@ class AdminDashboardWindow(ctk.CTkFrame):
             amount = f"฿{order['total_amount']:,.2f}"
             status = status_thai.get(order['status'], order['status'])
             
-            # --- 🛠️ ปรับแก้: แปลงเวลา UTC เป็นเวลาไทย (UTC+7) ---
+            # --- 🛠️ (แก้ไข) จัดรูปแบบเวลา (ที่ตอนนี้เป็นเวลาไทย) ---
             date_str = order['created_at'] if order['created_at'] else '-'
-            if date_str and date_str != '-':
-                try:
-                    # 1. แปลง String (UTC) เป็น datetime object
-                    utc_dt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
-                    # 2. บวก 7 ชั่วโมง
-                    thai_dt = utc_dt + timedelta(hours=7)
-                    # 3. แปลงกลับเป็น String (เวลาไทย)
-                    date = thai_dt.strftime('%Y-%m-%d %H:%M')
-                except ValueError:
-                    date = date_str[:16] # ถ้าแปลงไม่สำเร็จ, ใช้แบบเดิม
+            if date_str and len(date_str) > 16:
+                date = date_str[:16] # ตัดเอา 'YYYY-MM-DD HH:MM'
             else:
-                date = '-'
-            # --- 🛠️ สิ้นสุดการปรับแก้ ---
+                date = date_str
+            # --- 🛠️ (สิ้นสุดการแก้ไข) ---
             
             # เพิ่มแถวในตาราง
             table.insert("", "end", values=(order_id, customer, amount, status, date))
 
     # ### <<< เพิ่มฟังก์ชันใหม่ >>> ###
     # ==================== ฟังก์ชันใหม่สำหรับปฏิทิน ====================
+    
+    # --- 🛠️ (แก้ไข) นี่คือจุดที่แก้ Error ครับ! ---
     def mark_sales_days_on_calendar(self):
         """
         ดึงข้อมูลยอดขายทั้งหมดและมาร์คสีลงบนปฏิทิน
@@ -1009,11 +1005,9 @@ class AdminDashboardWindow(ctk.CTkFrame):
 
         try:
             # 1. ตั้งค่า tag สีก่อน
-            # 'sales_day' = วันที่มี-ยอดขาย
             self.calendar.tag_config('sales_day', background='#C8E6C9', foreground='black') # สีเขียวอ่อน
             
             # 2. ดึงข้อมูล-ยอดขายทั้งหมด (แบบรายวัน)
-            # (เราใช้ฟังก์ชันเดิมที่ database.py มีอยู่แล้ว)
             sales_data = self.db.get_sales_by_period('day')
             if not sales_data:
                 return
@@ -1021,11 +1015,18 @@ class AdminDashboardWindow(ctk.CTkFrame):
             # 3. วนลูปและเพิ่ม event ลงในปฏิทิน
             for day_data in sales_data:
                 if day_data['total_revenue'] > 0:
-                    # แปลง string 'YYYY-MM-DD' กลับเป็น object date
                     sale_date = datetime.strptime(day_data['sales_period'], '%Y-%m-%d').date()
                     
-                    # เพิ่ม event ลงในวันนั้น
-                    self.calendar.event_add(date=sale_date, tags='sales_day')
+                    # (โค้ดเก่าที่ผิดพลาด)
+                    # self.calendar.event_add(date=sale_date, tags='sales_day')
+                    # self.calendar.calevent_add(sale_date, tags=('sales_day',))
+                    
+                    # (โค้ดใหม่ที่ถูกต้อง)
+                    # 1. ใช้ 'calevent_create' (แปลว่า สร้าง event)
+                    # 2. ส่ง 'text' เป็นค่าว่าง ('')
+                    # 3. ส่ง 'tags' เป็น tuple (('tag',))
+                    self.calendar.calevent_create(sale_date, '', tags=('sales_day',))
 
         except Exception as e:
             print(f"เกิดข้อผิดพลาดในการมาร์คสีปฏิทิน: {e}")
+    # --- 🛠️ (สิ้นสุดการแก้ไข) ---
