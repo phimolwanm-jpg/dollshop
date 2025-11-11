@@ -162,10 +162,11 @@ class Database:
         try:
             cursor.execute("SELECT COUNT(*) FROM users")
             if cursor.fetchone()[0] == 0:
-                thai_time = datetime.utcnow() + timedelta(hours=7)
+                # --- 🛠️ (แก้ไข) จัดรูปแบบเวลา ---
+                thai_time_str = (datetime.utcnow() + timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S')
                 users = [
-                    ('admin', 'admin', 'admin@shop.com', 'Admin User', '0800000000', '123 Shop St.', None, 'admin', thai_time),
-                    ('customer', '123456', 'customer@email.com', 'Customer Name', '0811111111', '456 User Ave.', None, 'customer', thai_time)
+                    ('admin', 'admin', 'admin@shop.com', 'Admin User', '0800000000', '123 Shop St.', None, 'admin', thai_time_str),
+                    ('customer', '123456', 'customer@email.com', 'Customer Name', '0811111111', '456 User Ave.', None, 'customer', thai_time_str)
                 ]
                 cursor.executemany(
                     'INSERT INTO users (username, password, email, full_name, phone, address, profile_image_url, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -193,11 +194,12 @@ class Database:
             return None
         
         try:
-            thai_time = datetime.utcnow() + timedelta(hours=7)
+            # --- 🛠️ (แก้ไข) จัดรูปแบบเวลา ---
+            thai_time_str = (datetime.utcnow() + timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S')
             cursor.execute('''
                 INSERT INTO users (username, password, email, full_name, phone, address, profile_image_url, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (username, password, email, full_name, phone, address, profile_image_url, thai_time))
+            ''', (username, password, email, full_name, phone, address, profile_image_url, thai_time_str))
             user_id = cursor.lastrowid
             return user_id
         except sqlite3.IntegrityError:
@@ -333,11 +335,12 @@ class Database:
             return None
         
         try:
-            thai_time = datetime.utcnow() + timedelta(hours=7)
+            # --- 🛠️ (แก้ไข) จัดรูปแบบเวลา ---
+            thai_time_str = (datetime.utcnow() + timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S')
             cursor.execute('''
                 INSERT INTO products (name, description, price, stock, category, image_url, created_at) 
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (name, description, price, stock, category, image_url, thai_time))
+            ''', (name, description, price, stock, category, image_url, thai_time_str))
             product_id = cursor.lastrowid
             return product_id
         except sqlite3.Error as e:
@@ -410,8 +413,8 @@ class Database:
             conn.execute("PRAGMA foreign_keys = ON;")
             cursor = conn.cursor()
             
-            # 1. (แก้ไข) เพิ่มเวลาไทย (UTC+7)
-            thai_time = datetime.utcnow() + timedelta(hours=7)
+            # 1. (แก้ไข) เพิ่มเวลาไทย (UTC+7) และจัดรูปแบบ
+            thai_time_str = (datetime.utcnow() + timedelta(hours=7)).strftime('%Y-%m-%d %H:%M:%S')
             
             # 2. (แก้ไข) สร้างคำสั่งซื้อ - เพิ่ม created_at
             cursor.execute('''
@@ -421,7 +424,7 @@ class Database:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (user_id, buyer_name, buyer_phone, buyer_address, 
                   total_amount, payment_method, shipping_address, slip_image_filename,
-                  thai_time))
+                  thai_time_str))
             
             order_id = cursor.lastrowid
             
@@ -460,7 +463,7 @@ class Database:
             if conn:
                 conn.close()
 
-    # --- 🛠️ (ฟังก์ชัน get_user_orders ฉบับ Snapshot) ---
+    # --- 🛠️ (แก้ไข) ฟังก์ชัน get_user_orders (เรียงตาม ID) ---
     def get_user_orders(self, user_id):
         """ดึงคำสั่งซื้อของผู้ใช้ (ใช้ Snapshot)"""
         cursor = self.connect()
@@ -475,7 +478,7 @@ class Database:
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
                 WHERE o.user_id = ? 
                 GROUP BY o.order_id 
-                ORDER BY o.created_at DESC
+                ORDER BY o.order_id DESC 
             ''', (user_id,))
             orders = cursor.fetchall()
             return [dict(o) for o in orders]
@@ -485,7 +488,7 @@ class Database:
         finally:
             self.close()
 
-    # --- 🛠️ (ฟังก์ชัน get_all_orders ฉบับ Snapshot) ---
+    # --- 🛠️ (แก้ไข) ฟังก์ชัน get_all_orders (เรียงตาม ID) ---
     def get_all_orders(self):
         """ดึงคำสั่งซื้อทั้งหมด (สำหรับ Admin) (ใช้ Snapshot)"""
         cursor = self.connect()
@@ -500,7 +503,7 @@ class Database:
                 FROM orders o 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
                 GROUP BY o.order_id 
-                ORDER BY o.created_at DESC
+                ORDER BY o.order_id DESC
             ''')
             orders = cursor.fetchall()
             return [dict(o) for o in orders]
@@ -583,6 +586,7 @@ class Database:
 
     # ========== ฟังก์ชันสำหรับ Dashboard และรายงาน ==========
     
+    # --- 🛠️ (แก้ไข) เปลี่ยน DATE() เป็น STRFTIME ---
     def get_daily_sales_summary(self, date_str):
         """ดึงยอดขายรายวัน"""
         cursor = self.connect()
@@ -593,7 +597,7 @@ class Database:
             cursor.execute("""
                 SELECT COUNT(*), COALESCE(SUM(total_amount), 0)
                 FROM orders 
-                WHERE DATE(created_at) = DATE(?) AND status != 'cancelled'
+                WHERE STRFTIME('%Y-%m-%d', created_at) = ? AND status != 'cancelled'
             """, (date_str,))
             result = cursor.fetchone()
             total_orders = result[0] if result else 0
@@ -605,7 +609,7 @@ class Database:
         finally:
             self.close()
 
-    # --- 🛠️ (ฟังก์ชัน get_orders_for_date ฉบับ Snapshot) ---
+    # --- 🛠️ (แก้ไข) เปลี่ยน DATE() เป็น STRFTIME และเรียงตาม ID ---
     def get_orders_for_date(self, date_str):
         """ดึงรายการคำสั่งซื้อในวันที่กำหนด (ใช้ Snapshot)"""
         cursor = self.connect()
@@ -619,9 +623,9 @@ class Database:
                        GROUP_CONCAT(oi.product_name || ' x' || oi.quantity) as items
                 FROM orders o 
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id 
-                WHERE DATE(o.created_at) = DATE(?) 
+                WHERE STRFTIME('%Y-%m-%d', o.created_at) = ? 
                 GROUP BY o.order_id 
-                ORDER BY o.created_at DESC
+                ORDER BY o.order_id DESC
             ''', (date_str,))
             orders = cursor.fetchall()
             return [dict(o) for o in orders]
@@ -677,6 +681,7 @@ class Database:
 
     # ========== ฟังก์ชันสำหรับดูยอดขายตามวันที่เลือก (ใหม่) ==========
     
+    # --- 🛠️ (แก้ไข) เปลี่ยน DATE() เป็น STRFTIME ---
     def get_sales_by_date(self, date_str):
         """
         ดึงยอดขายตามวันที่ที่ระบุ
@@ -688,13 +693,13 @@ class Database:
         try:
             query = """
                 SELECT 
-                    DATE(created_at) as sale_date,
+                    STRFTIME('%Y-%m-%d', created_at) as sale_date,
                     COUNT(*) as order_count,
                     COALESCE(SUM(total_amount), 0) as total_revenue
                 FROM orders
-                WHERE DATE(created_at) = DATE(?) 
+                WHERE STRFTIME('%Y-%m-%d', created_at) = ? 
                   AND status != 'cancelled'
-                GROUP BY DATE(created_at)
+                GROUP BY STRFTIME('%Y-%m-%d', created_at)
             """
             
             cursor.execute(query, (date_str,))
@@ -895,7 +900,7 @@ class Database:
         finally:
             self.close()
 
-    # --- 🛠️ (ฟังก์ชัน get_recent_orders ฉบับ Snapshot) ---
+    # --- 🛠️ (แก้ไข) ฟังก์ชัน get_recent_orders (เรียงตาม ID) ---
     def get_recent_orders(self, limit=10):
         """ดึงคำสั่งซื้อล่าสุด (ใช้ Snapshot)"""
         cursor = self.connect()
@@ -907,7 +912,7 @@ class Database:
                 SELECT o.*, 
                        o.buyer_name as full_name
                 FROM orders o 
-                ORDER BY o.created_at DESC 
+                ORDER BY o.order_id DESC 
                 LIMIT ?
             ''', (limit,))
             orders = cursor.fetchall()
@@ -930,10 +935,6 @@ class Database:
             return []
         
         try:
-            # (แก้ไข)
-            # 1. ลบ oi.price_per_unit ออกจาก GROUP BY
-            #    เพื่อให้มันนับ 'ตุ๊กตาหมี' (ที่ราคา 100) 
-            #    และ 'ตุ๊กตาหมี' (ที่ราคา 120) เป็นสินค้า "เดียวกัน"
             cursor.execute('''
                 SELECT 
                     oi.product_id, 
@@ -995,9 +996,8 @@ class Database:
             return []
         finally:
             self.close()
-
-    # ### <<< เพิ่มใหม่: 3 ฟังก์ชันสำหรับนับจำนวนสินค้า >>> ###
     
+    # --- 🛠️ (แก้ไข) เปลี่ยน DATE() เป็น STRFTIME ---
     def get_items_sold_by_date(self, date_str):
         """
         ดึงจำนวนสินค้าที่ขายได้ตามวันที่
@@ -1009,20 +1009,20 @@ class Database:
         try:
             query = """
                 SELECT 
-                    DATE(o.created_at) as sale_date,
+                    STRFTIME('%Y-%m-%d', o.created_at) as sale_date,
                     COALESCE(SUM(oi.quantity), 0) as total_items
                 FROM orders o
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id
-                WHERE DATE(o.created_at) = DATE(?) 
+                WHERE STRFTIME('%Y-%m-%d', o.created_at) = ? 
                   AND o.status != 'cancelled'
-                GROUP BY DATE(o.created_at)
+                GROUP BY STRFTIME('%Y-%m-%d', o.created_at)
             """
             cursor.execute(query, (date_str,))
             result = cursor.fetchall()
             return [dict(row) for row in result]
             
         except sqlite3.Error as e:
-            print(f"เกิดข้อผิดพลา (get_items_sold_by_date): {e}")
+            print(f"เกิดข้อผิดพลาด (get_items_sold_by_date): {e}")
             return []
         finally:
             self.close()

@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from tkinter import ttk
-from datetime import datetime, timedelta # 👈 1. Import datetime และ timedelta
+from datetime import datetime, timedelta # (Import นี้อาจจะไม่ถูกใช้แล้ว แต่เก็บไว้)
 
 class SalesHistoryWindow(ctk.CTkFrame):
     def __init__(self, parent, main_app):
@@ -256,10 +256,11 @@ class SalesHistoryWindow(ctk.CTkFrame):
         
         try:
             cursor = self.db.connect()
+            # (โค้ดนี้ใช้ DB ฉบับใหม่ที่แก้ Snapshot แล้ว)
             cursor.execute("SELECT COALESCE(SUM(quantity), 0) FROM order_items")
             result = cursor.fetchone()
             if result:
-                total = result[0]
+                total = int(result[0])
         except Exception as error:
             print(f"นับสินค้าไม่สำเร็จ: {error}")
         finally:
@@ -274,7 +275,7 @@ class SalesHistoryWindow(ctk.CTkFrame):
         for item in self.table.get_children():
             self.table.delete(item)
         
-        # ดึงข้อมูลทั้งหมด
+        # (DB ใหม่จะส่ง 'full_name' ที่เป็น Snapshot (buyer_name) มาให้)
         orders = self.db.get_all_orders()
         
         # แปลภาษาสถานะ
@@ -297,24 +298,17 @@ class SalesHistoryWindow(ctk.CTkFrame):
             # Order ID
             order_id = f"#{order['order_id']}"
             
-            # --- 🛠️ ปรับแก้: แปลงเวลา UTC เป็นเวลาไทย (UTC+7) ---
+            # --- 🛠️ (แก้ไข) ลบการบวก 7 ชั่วโมงซ้ำซ้อน ---
             date_str = order.get('created_at', '-')
             if date_str and date_str != '-':
-                try:
-                    # 1. แปลง String (UTC) เป็น datetime object
-                    utc_dt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
-                    # 2. บวก 7 ชั่วโมง
-                    thai_dt = utc_dt + timedelta(hours=7)
-                    # 3. แปลงกลับเป็น String (เวลาไทย)
-                    date = thai_dt.strftime('%Y-%m-%d %H:%M')
-                except ValueError:
-                    date = date_str[:16] # ถ้าแปลงไม่สำเร็จ, ใช้แบบเดิม
+                # แค่ตัดส่วนวินาทีทิ้ง (ถ้ามี)
+                date = date_str[:16] 
             else:
                 date = '-'
             # --- 🛠️ สิ้นสุดการปรับแก้ ---
             
             # ลูกค้า
-            customer = order.get('full_name', '-')
+            customer = order.get('full_name', '-') # (DB ใหม่ส่ง buyer_name มาในชื่อนี้)
             
             # รายการสินค้า
             items = order.get('items', '')
